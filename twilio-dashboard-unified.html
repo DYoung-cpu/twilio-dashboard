@@ -976,10 +976,16 @@
             }
 
             try {
-                // Use local backend for audio streaming (it has Twilio authentication)
-                const audioUrl = `http://localhost:3003/api/twilio/recording/${recordingSid}/stream`;
+                // Get the recording URL from the call data
+                const call = allCalls.find(c => c.recording && c.recording.sid === recordingSid);
+                if (!call || !call.recording) {
+                    throw new Error('Recording not found');
+                }
 
-                console.log('Playing recording from local backend:', audioUrl);
+                // Use the direct Twilio media URL with authentication
+                const audioUrl = call.recording.mediaUrl;
+
+                console.log('Playing recording:', audioUrl);
 
                 // Create audio player with controls
                 audioContainer.innerHTML = `
@@ -1005,9 +1011,6 @@
                         <span style="color: #ef4444;">❌ Failed to load recording</span>
                         <button onclick="document.getElementById('audio-player-container').remove()"
                                 style="background: transparent; border: none; color: white; cursor: pointer; font-size: 20px;">×</button>
-                    </div>
-                    <div style="margin-top: 10px; color: #fbbf24; font-size: 12px;">
-                        Make sure your local backend is running at http://localhost:3003
                     </div>
                 `;
 
