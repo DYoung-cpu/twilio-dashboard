@@ -979,6 +979,34 @@
             }
         }
 
+        // Clear old string transcripts and re-transcribe as arrays
+        function clearOldTranscripts() {
+            let clearedCount = 0;
+            const oldTranscripts = [];
+
+            for (const [sid, transcript] of Object.entries(transcripts)) {
+                if (typeof transcript === 'string') {
+                    oldTranscripts.push(sid);
+                    delete transcripts[sid];
+                    clearedCount++;
+                }
+            }
+
+            if (clearedCount > 0) {
+                console.log(`Cleared ${clearedCount} old string transcripts`);
+                alert(`Cleared ${clearedCount} old transcripts. Click on calls to re-transcribe with proper speaker segmentation.`);
+
+                // Clear localStorage too
+                localStorage.removeItem('transcripts');
+
+                // Refresh the display
+                document.getElementById('transcript-box').innerHTML =
+                    '<div class="empty-state">Select a call to view transcript</div>';
+            } else {
+                alert('No old transcripts to clear. All transcripts are already in the proper format.');
+            }
+        }
+
         // Select a call for transcription
         function selectCall(recordingSid, callSid) {
             document.getElementById('recording-sid').value = recordingSid;
@@ -989,8 +1017,25 @@
             });
             document.querySelector(`[data-recording="${recordingSid}"]`)?.classList.add('selected');
 
-            // Show existing transcript if we have it
+            // Check if we have a cached transcript
             if (transcripts[recordingSid]) {
+                // If it's an old string transcript, delete it and re-transcribe
+                if (typeof transcripts[recordingSid] === 'string') {
+                    console.log('Found old string transcript - deleting and re-transcribing for proper speaker segmentation');
+                    delete transcripts[recordingSid];
+
+                    // Force re-transcription
+                    document.getElementById('transcript-box').innerHTML =
+                        '<div class="empty-state">Re-transcribing with proper speaker segmentation...</div>';
+
+                    const call = allCalls.find(c => c.recording && c.recording.sid === recordingSid);
+                    if (call && !isAutoTranscribing) {
+                        console.log('Starting fresh transcription for:', recordingSid);
+                        transcribeQueue = [call];
+                        autoTranscribeNew();
+                    }
+                    return;
+                }
                 console.log('Using existing transcript for', recordingSid, '- no API call needed');
                 console.log('Transcript data:', transcripts[recordingSid]);
                 console.log('Transcript type:', typeof transcripts[recordingSid]);
