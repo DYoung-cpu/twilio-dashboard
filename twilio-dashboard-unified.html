@@ -679,14 +679,14 @@
                 const data = await response.json();
 
                 document.getElementById('twilio-status').className =
-                    data.env.hasTwilio ? 'status-item success' : 'status-item error';
+                    data.twilio ? 'status-item success' : 'status-item error';
                 document.getElementById('twilio-status').textContent =
-                    data.env.hasTwilio ? '✅ Twilio' : '❌ Twilio';
+                    data.twilio ? '✅ Twilio' : '❌ Twilio';
 
                 document.getElementById('openai-status').className =
-                    data.env.hasOpenAI ? 'status-item success' : 'status-item error';
+                    data.assemblyai ? 'status-item success' : 'status-item error';
                 document.getElementById('openai-status').textContent =
-                    data.env.hasOpenAI ? '✅ OpenAI' : '❌ OpenAI';
+                    data.assemblyai ? '✅ AssemblyAI' : '❌ AssemblyAI';
             } catch (error) {
                 console.error('Status check failed:', error);
             }
@@ -724,8 +724,9 @@
                     document.getElementById('call-count').textContent = data.count + ' calls';
                     displayCalls(data.calls);
 
-                    // Auto-transcribe recordings without transcripts
-                    autoTranscribeNew();
+                    // DON'T auto-transcribe all recordings (prevents unexpected costs)
+                    // autoTranscribeNew();
+                    console.log('Auto-transcription disabled. Click individual calls to transcribe.');
                 } else {
                     listEl.innerHTML = '<div class="empty-state">No calls found</div>';
                 }
@@ -748,8 +749,15 @@
                 return;
             }
 
-            console.log(`Found ${transcribeQueue.length} NEW recordings to transcribe (will cost money)`);
-            console.log('Recordings to transcribe:', transcribeQueue.map(c => c.recording.sid));
+            // SAFETY CHECK: Don't auto-transcribe more than 1 at a time
+            if (transcribeQueue.length > 1) {
+                console.warn(`⚠️ Found ${transcribeQueue.length} recordings without transcripts`);
+                console.warn('Auto-transcription disabled to prevent costs. Click individual calls to transcribe.');
+                return;
+            }
+
+            console.log(`Found ${transcribeQueue.length} NEW recording to transcribe`);
+            console.log('Recording to transcribe:', transcribeQueue.map(c => c.recording.sid));
             isAutoTranscribing = true;
 
             // Update status
