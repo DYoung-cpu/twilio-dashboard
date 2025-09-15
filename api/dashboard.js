@@ -48,6 +48,7 @@ module.exports = async function handler(req, res) {
 
     // Loan Officer Phone Number Mapping
     // Maps Twilio phone numbers to loan officers
+    // Use multiple formats to ensure matching
     const loanOfficerNumbers = {
       '+18184771989': {  // David's Twilio number
         name: 'David Young',
@@ -55,7 +56,31 @@ module.exports = async function handler(req, res) {
         title: 'Senior Loan Officer',
         nmls: '123456'
       },
+      '18184771989': {  // Without +
+        name: 'David Young',
+        email: 'david@lendwise.com',
+        title: 'Senior Loan Officer',
+        nmls: '123456'
+      },
+      '8184771989': {  // Just 10 digits
+        name: 'David Young',
+        email: 'david@lendwise.com',
+        title: 'Senior Loan Officer',
+        nmls: '123456'
+      },
       '+18189182433': {  // Tony's Twilio number
+        name: 'Tony Nasim',
+        email: 'tony.nasim@lendwisemortgage.com',
+        title: 'Loan Officer',
+        nmls: '789012'
+      },
+      '18189182433': {  // Without +
+        name: 'Tony Nasim',
+        email: 'tony.nasim@lendwisemortgage.com',
+        title: 'Loan Officer',
+        nmls: '789012'
+      },
+      '8189182433': {  // Just 10 digits
         name: 'Tony Nasim',
         email: 'tony.nasim@lendwisemortgage.com',
         title: 'Loan Officer',
@@ -95,24 +120,27 @@ module.exports = async function handler(req, res) {
         // Clean phone number for matching
         const cleanLOPhone = loanOfficerPhone.replace(/\D/g, '');
 
-        // Find matching loan officer
+        // Find matching loan officer - try direct lookup first
         console.log(`Checking loan officer for ${call.direction} call:`, loanOfficerPhone);
-        for (const [phone, info] of Object.entries(loanOfficerNumbers)) {
-          const cleanPhone = phone.replace(/\D/g, '');
-          console.log(`  Comparing ${cleanLOPhone} with ${cleanPhone}`);
-          // Match last 10 digits to handle different formats
-          const match = cleanLOPhone.slice(-10) === cleanPhone.slice(-10);
-          if (match) {
-            loanOfficerInfo = {
-              ...info,
-              phone: phone
-            };
-            console.log(`  ✓ Matched: ${info.name}`);
-            break;
-          }
-        }
+
+        // Direct lookup with the exact format
+        loanOfficerInfo = loanOfficerNumbers[loanOfficerPhone];
+
+        // If no direct match, try with just digits
         if (!loanOfficerInfo) {
-          console.log(`  ✗ No match found for ${loanOfficerPhone}`);
+          loanOfficerInfo = loanOfficerNumbers[cleanLOPhone];
+        }
+
+        // If still no match, try last 10 digits
+        if (!loanOfficerInfo) {
+          const last10 = cleanLOPhone.slice(-10);
+          loanOfficerInfo = loanOfficerNumbers[last10];
+        }
+
+        if (loanOfficerInfo) {
+          console.log(`  ✓ Matched: ${loanOfficerInfo.name}`);
+        } else {
+          console.log(`  ✗ No match found for ${loanOfficerPhone} (cleaned: ${cleanLOPhone})`);
         }
 
         // Identify the customer
