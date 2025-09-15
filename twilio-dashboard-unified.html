@@ -695,9 +695,19 @@
             }
         }
 
-        // Load existing transcripts from database
+        // Load existing transcripts from localStorage (not API to avoid costs)
         async function loadTranscripts() {
             try {
+                // First try localStorage
+                const saved = localStorage.getItem('transcripts');
+                if (saved) {
+                    transcripts = JSON.parse(saved);
+                    const count = Object.keys(transcripts).length;
+                    console.log(`Loaded ${count} existing transcripts from localStorage (no API cost)`);
+                    return;
+                }
+
+                // If no localStorage, check API (but this returns empty now)
                 const response = await fetch(`${API_BASE}/transcripts`);
                 const data = await response.json();
 
@@ -848,6 +858,14 @@
                             transcripts[call.recording.sid] = data.transcript;
                         } else {
                             transcripts[call.recording.sid] = data.transcript;
+                        }
+
+                        // Save to localStorage to persist across refreshes
+                        try {
+                            localStorage.setItem('transcripts', JSON.stringify(transcripts));
+                            console.log('Saved transcripts to localStorage');
+                        } catch (e) {
+                            console.warn('Failed to save to localStorage:', e);
                         }
 
                         // Update display

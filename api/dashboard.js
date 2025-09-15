@@ -75,7 +75,22 @@ module.exports = async function handler(req, res) {
         };
 
         // Check if this call is from a known customer
-        customerInfo = demoCustomers[call.from] || {
+        // Handle different phone formats
+        const cleanPhone = call.from.replace(/\D/g, '');
+        let foundCustomer = null;
+
+        // Check each demo customer number
+        for (const [demoPhone, info] of Object.entries(demoCustomers)) {
+          const cleanDemo = demoPhone.replace(/\D/g, '');
+          // Match if the last 10 digits are the same
+          if (cleanPhone.endsWith(cleanDemo.slice(-10)) || cleanDemo.endsWith(cleanPhone.slice(-10))) {
+            foundCustomer = info;
+            console.log(`Matched customer ${info.customerName} for ${call.from}`);
+            break;
+          }
+        }
+
+        customerInfo = foundCustomer || {
           isWidgetCall: false,
           customerName: null,
           customerEmail: null,
