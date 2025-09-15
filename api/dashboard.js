@@ -49,15 +49,15 @@ module.exports = async function handler(req, res) {
     // Loan Officer Phone Number Mapping
     // Maps Twilio phone numbers to loan officers
     const loanOfficerNumbers = {
-      '+15613861444': {
+      '+18184771989': {  // David's Twilio number
         name: 'David Young',
         email: 'david@lendwise.com',
         title: 'Senior Loan Officer',
         nmls: '123456'
       },
-      '+15614007539': {
-        name: 'Sarah Johnson',
-        email: 'sarah@lendwise.com',
+      '+18189182433': {  // Tony's Twilio number
+        name: 'Tony Nasim',
+        email: 'tony.nasim@lendwisemortgage.com',
         title: 'Loan Officer',
         nmls: '789012'
       }
