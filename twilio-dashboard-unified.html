@@ -803,6 +803,10 @@
                             // Look for patterns like "Speaker A:" or "Speaker 1:"
                             const segments = parseTranscriptString(data.transcript);
                             transcripts[call.recording.sid] = segments;
+                        } else if (Array.isArray(data.transcript)) {
+                            // Already properly formatted as array of utterances from API
+                            console.log(`Storing ${data.transcript.length} utterances for ${call.recording.sid}`);
+                            transcripts[call.recording.sid] = data.transcript;
                         } else {
                             transcripts[call.recording.sid] = data.transcript;
                         }
@@ -1013,46 +1017,43 @@
             console.log('Transcript type:', typeof transcript);
 
             // Store current transcript
-            if (typeof transcript === 'string') {
-                console.log('Processing as string transcript - attempting to parse for speakers');
-
-                // ALWAYS try to parse the string for speaker segments
-                const segments = parseTranscriptString(transcript);
-
-                if (segments && segments.length > 1) {
-                    console.log('Successfully parsed into', segments.length, 'segments');
-                    currentTranscript = segments;
-                } else {
-                    // Check if it's a JSON string that needs parsing
-                    try {
-                        const parsed = JSON.parse(transcript);
-                        if (Array.isArray(parsed)) {
-                            console.log('Parsed JSON array of segments:', parsed);
-                            currentTranscript = parsed;
-                        } else if (parsed.utterances) {
-                            console.log('Parsed JSON with utterances:', parsed.utterances);
-                            currentTranscript = parsed.utterances;
-                        } else {
-                            // Still try to parse the text content
-                            const textContent = parsed.text || transcript;
-                            const segments = parseTranscriptString(textContent);
-                            currentTranscript = segments;
-                        }
-                    } catch (e) {
-                        // Not JSON, already parsed above
-                        if (!currentTranscript || currentTranscript.length === 0) {
-                            currentTranscript = [{
-                                speaker: 'Full Recording',
-                                text: transcript,
-                                start: 0,
-                                end: 0
-                            }];
-                        }
-                    }
-                }
-            } else if (Array.isArray(transcript)) {
+            if (Array.isArray(transcript)) {
                 console.log('Processing as array of segments:', transcript.length, 'segments');
                 currentTranscript = transcript;
+                console.log('First 3 segments:', transcript.slice(0, 3));
+            } else if (typeof transcript === 'string') {
+                console.log('Processing as string transcript - attempting to parse for speakers');
+
+                // Try to parse JSON first
+                try {
+                    const parsed = JSON.parse(transcript);
+                    if (Array.isArray(parsed)) {
+                        console.log('Parsed JSON array of segments:', parsed.length, 'segments');
+                        currentTranscript = parsed;
+                    } else if (parsed.utterances) {
+                        console.log('Parsed JSON with utterances:', parsed.utterances.length, 'utterances');
+                        currentTranscript = parsed.utterances;
+                    } else {
+                        // Still try to parse the text content
+                        const textContent = parsed.text || transcript;
+                        const segments = parseTranscriptString(textContent);
+                        currentTranscript = segments;
+                    }
+                } catch (e) {
+                    // Not JSON, parse as plain text
+                    const segments = parseTranscriptString(transcript);
+                    if (segments && segments.length > 0) {
+                        console.log('Successfully parsed into', segments.length, 'segments');
+                        currentTranscript = segments;
+                    } else {
+                        currentTranscript = [{
+                            speaker: 'Full Recording',
+                            text: transcript,
+                            start: 0,
+                            end: 0
+                        }];
+                    }
+                }
             } else if (transcript && transcript.utterances) {
                 console.log('Processing utterances from object:', transcript.utterances.length, 'utterances');
                 currentTranscript = transcript.utterances;
@@ -1305,76 +1306,9 @@
             console.log('=== PARSING TRANSCRIPT FOR SPEAKERS ===');
             console.log('Full transcript text:', transcriptText);
 
-            // AGGRESSIVE PARSING - Split this specific conversation pattern
-            // Looking for: "Hi, Jim. This is David. How can I help you? Hi. My name is Jim..."
-
-            // First check if this looks like the merged conversation
-            if (transcriptText.includes("Hi, Jim") && transcriptText.includes("This is David") && transcriptText.includes("My name is Jim")) {
-                console.log('DETECTED MERGED CONVERSATION - Forcing split');
-
-                const segments = [];
-
-                // Find where David's part ends and Jim's begins
-                // Look for "How can I help you?" as the boundary
-                const davidEndPattern = /How can I help you\?/i;
-                const davidEndMatch = transcriptText.match(davidEndPattern);
-
-                if (davidEndMatch) {
-                    const splitPoint = davidEndMatch.index + davidEndMatch[0].length;
-
-                    const davidPart = transcriptText.substring(0, splitPoint).trim();
-                    const jimPart = transcriptText.substring(splitPoint).trim();
-
-                    console.log('Split point found at:', splitPoint);
-                    console.log('David says:', davidPart);
-                    console.log('Jim says:', jimPart);
-
-                    segments.push({
-                        speaker: 'Speaker A',
-                        text: davidPart,
-                        start: 0,
-                        end: 10
-                    });
-
-                    segments.push({
-                        speaker: 'Speaker B',
-                        text: jimPart,
-                        start: 10,
-                        end: 20
-                    });
-
-                    console.log('SUCCESSFULLY SPLIT INTO 2 SPEAKERS');
-                    return segments;
-                }
-
-                // Alternative split: Look for "Hi. My name is Jim" as Jim's response start
-                const jimStartPattern = /Hi\.?\s+(My name is|I'm|I am)\s+Jim/i;
-                const jimMatch = transcriptText.match(jimStartPattern);
-
-                if (jimMatch) {
-                    const jimStartIndex = jimMatch.index;
-
-                    const davidPart = transcriptText.substring(0, jimStartIndex).trim();
-                    const jimPart = transcriptText.substring(jimStartIndex).trim();
-
-                    segments.push({
-                        speaker: 'Speaker A',
-                        text: davidPart,
-                        start: 0,
-                        end: 10
-                    });
-
-                    segments.push({
-                        speaker: 'Speaker B',
-                        text: jimPart,
-                        start: 10,
-                        end: 20
-                    });
-
-                    console.log('SPLIT USING JIM START PATTERN');
-                    return segments;
-                }
-            }
+            // NOTE: This function should only be used as a fallback for plain text transcripts
+            // The API should provide properly segmented utterances with speaker diarization
+            // Disabling aggressive parsing that was limiting to only 2 segments
 
             // Special handling for conversations that start with greetings
             // Pattern: "Hi/Hello [Name]. This is [Name]" indicates conversation start
