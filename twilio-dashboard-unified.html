@@ -897,9 +897,12 @@
                 const isInbound = call.direction === 'inbound';
 
                 const loanOfficerName = hasLoanOfficer ? call.loanOfficerInfo.name : 'Unknown Loan Officer';
-                const customerName = hasCustomer ? call.customerInfo.name : null;
+                const customerName = hasCustomer ? call.customerInfo.name : 'Unknown Customer';
                 const customerEmail = hasCustomer ? call.customerInfo.email : null;
                 const customerPhone = call.customerInfo ? call.customerInfo.phone : (isInbound ? call.from : call.to);
+
+                // Always show customer section, even if unknown
+                const showCustomerSection = true;
 
                 return `
                     <div class="call-item ${hasCustomer ? 'widget-call' : ''}" onclick="selectCall('${call.recording.sid}', '${call.sid}')" data-recording="${call.recording.sid}" style="${hasCustomer ? 'border-left: 4px solid #667eea;' : ''}">
@@ -925,10 +928,10 @@
                                 </div>
                             </div>
                         </div>
-                        ${hasCustomer ? `
+                        ${showCustomerSection ? `
                             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 8px 12px; margin: -10px -12px 10px -12px;">
                                 <div style="font-size: 16px; font-weight: 600;">
-                                    👤 ${customerName}
+                                    👤 ${customerName || 'Customer'}
                                 </div>
                                 ${customerEmail ? `
                                     <div style="font-size: 14px; margin-top: 4px;">
