@@ -891,25 +891,50 @@
                 const timeStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
                 const duration = call.duration ? call.duration + 's' : 'N/A';
 
-                // Check if this is a widget call with customer info
-                const hasCustomerInfo = call.customerInfo && call.customerInfo.isWidgetCall;
-                const customerName = hasCustomerInfo ? call.customerInfo.customerName : null;
-                const customerEmail = hasCustomerInfo ? call.customerInfo.customerEmail : null;
-                const customerPhone = hasCustomerInfo ? call.customerInfo.customerPhone : null;
-                const callType = hasCustomerInfo ? call.customerInfo.callType : null;
+                // Get loan officer and customer info
+                const hasLoanOfficer = call.loanOfficerInfo && call.loanOfficerInfo.name;
+                const hasCustomer = call.customerInfo && call.customerInfo.isKnown;
+                const isInbound = call.direction === 'inbound';
+
+                const loanOfficerName = hasLoanOfficer ? call.loanOfficerInfo.name : 'Unknown Loan Officer';
+                const customerName = hasCustomer ? call.customerInfo.name : null;
+                const customerEmail = hasCustomer ? call.customerInfo.email : null;
+                const customerPhone = call.customerInfo ? call.customerInfo.phone : (isInbound ? call.from : call.to);
 
                 return `
-                    <div class="call-item ${hasCustomerInfo ? 'widget-call' : ''}" onclick="selectCall('${call.recording.sid}', '${call.sid}')" data-recording="${call.recording.sid}" style="${hasCustomerInfo ? 'border-left: 4px solid #667eea;' : ''}">
-                        ${hasCustomerInfo ? `
-                            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 8px 12px; margin: -12px -12px 10px -12px; border-radius: 7px 7px 0 0;">
+                    <div class="call-item ${hasCustomer ? 'widget-call' : ''}" onclick="selectCall('${call.recording.sid}', '${call.sid}')" data-recording="${call.recording.sid}" style="${hasCustomer ? 'border-left: 4px solid #667eea;' : ''}">
+                        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #0f0f0f 100%); color: white; padding: 8px 12px; margin: -12px -12px 10px -12px; border-radius: 7px 7px 0 0;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div style="font-size: 14px; font-weight: 600; color: #22c55e;">
+                                        ${isInbound ? '📞 Inbound Call' : '📱 Outbound Call'}
+                                    </div>
+                                    <div style="font-size: 16px; font-weight: 600; margin-top: 4px;">
+                                        👔 ${loanOfficerName}
+                                    </div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 12px; opacity: 0.8;">
+                                        ${hasLoanOfficer ? call.loanOfficerInfo.title : ''}
+                                    </div>
+                                    ${hasLoanOfficer && call.loanOfficerInfo.nmls ? `
+                                        <div style="font-size: 11px; opacity: 0.7;">
+                                            NMLS #${call.loanOfficerInfo.nmls}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                        ${hasCustomer ? `
+                            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 8px 12px; margin: -10px -12px 10px -12px;">
                                 <div style="font-size: 16px; font-weight: 600;">
                                     👤 ${customerName}
-                                    ${callType === 'loan_officer' ? '<span style="font-size: 12px; opacity: 0.9; margin-left: 10px;">(Loan Officer Side)</span>' : ''}
-                                    ${callType === 'customer' ? '<span style="font-size: 12px; opacity: 0.9; margin-left: 10px;">(Customer Side)</span>' : ''}
                                 </div>
-                                <div style="font-size: 14px; margin-top: 4px;">
-                                    ✉️ ${customerEmail}
-                                </div>
+                                ${customerEmail ? `
+                                    <div style="font-size: 14px; margin-top: 4px;">
+                                        ✉️ ${customerEmail}
+                                    </div>
+                                ` : ''}
                                 <div style="font-size: 14px; margin-top: 2px;">
                                     📱 ${formatPhone(customerPhone)}
                                 </div>
@@ -917,14 +942,12 @@
                         ` : ''}
                         <div class="call-header">
                             <span class="call-phone">
-                                ${!hasCustomerInfo ?
-                                    formatPhone(call.from) + ' → ' + formatPhone(call.to) :
-                                    'Conference Call'}
+                                ${formatPhone(call.from)} → ${formatPhone(call.to)}
                             </span>
                             <span class="call-time">${timeStr}</span>
                         </div>
                         <div class="call-details" style="margin-top: 8px;">
-                            ${hasCustomerInfo ? '<span class="badge" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">Widget Lead</span>' : ''}
+                            ${hasCustomer && call.customerInfo.source === 'widget' ? '<span class="badge" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">Widget Lead</span>' : ''}
                             <span class="badge recording" style="cursor: pointer; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white;"
                                   onclick="playRecording('${call.recording.sid}', event)"
                                   title="Click to play recording">

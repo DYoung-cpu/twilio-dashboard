@@ -46,64 +46,95 @@ module.exports = async function handler(req, res) {
       recordingMap[recording.callSid] = recording;
     });
 
+    // Loan Officer Phone Number Mapping
+    // Maps Twilio phone numbers to loan officers
+    const loanOfficerNumbers = {
+      '+15613861444': {
+        name: 'David Young',
+        email: 'david@lendwise.com',
+        title: 'Senior Loan Officer',
+        nmls: '123456'
+      },
+      '+15614007539': {
+        name: 'Sarah Johnson',
+        email: 'sarah@lendwise.com',
+        title: 'Loan Officer',
+        nmls: '789012'
+      }
+      // Add more loan officer numbers as needed
+    };
+
+    // Customer information for known customers
+    // In production, this would come from CRM or widget metadata
+    const knownCustomers = {
+      '+18189182433': {
+        name: 'Federico Fernandez',
+        email: 'federico@example.com',
+        source: 'widget'
+      },
+      '+19548286704': {
+        name: 'Test Customer',
+        email: 'test@example.com',
+        source: 'direct'
+      }
+    };
+
     // Filter calls with recordings and format response
     const callsWithRecordings = calls
       .filter(call => recordingMap[call.sid])
       .map(call => {
         const recording = recordingMap[call.sid];
 
-        // Check for widget call info
-        let customerInfo = null;
+        // Identify the loan officer who received/made the call
+        let loanOfficerInfo = null;
 
-        // For demo purposes, mark some calls as widget calls
-        // In production, this would come from call metadata or a database
-        const demoCustomers = {
-          '+18189182433': {
-            isWidgetCall: true,
-            customerName: 'Federico Fernandez',
-            customerEmail: 'federico@example.com',
-            customerPhone: '+18189182433',
-            callType: 'customer'
-          },
-          '+19548286704': {
-            isWidgetCall: true,
-            customerName: 'David Young',
-            customerEmail: 'david@lendwise.com',
-            customerPhone: '+19548286704',
-            callType: 'customer'
-          },
-          '+15613861444': {
-            isWidgetCall: true,
-            customerName: 'Jim Customer',
-            customerEmail: 'jim@example.com',
-            customerPhone: '+15613861444',
-            callType: 'customer'
-          }
-        };
+        // For inbound calls, check the 'to' field
+        // For outbound calls, check the 'from' field
+        const loanOfficerPhone = call.direction === 'inbound' ? call.to : call.from;
 
-        // Check if this call is from a known customer
-        // Handle different phone formats
-        const cleanPhone = call.from.replace(/\D/g, '');
-        let foundCustomer = null;
+        // Clean phone number for matching
+        const cleanLOPhone = loanOfficerPhone.replace(/\D/g, '');
 
-        // Check each demo customer number
-        for (const [demoPhone, info] of Object.entries(demoCustomers)) {
-          const cleanDemo = demoPhone.replace(/\D/g, '');
-          // Match if the last 10 digits are the same
-          if (cleanPhone.endsWith(cleanDemo.slice(-10)) || cleanDemo.endsWith(cleanPhone.slice(-10))) {
-            foundCustomer = info;
-            console.log(`Matched customer ${info.customerName} for ${call.from}`);
+        // Find matching loan officer
+        for (const [phone, info] of Object.entries(loanOfficerNumbers)) {
+          const cleanPhone = phone.replace(/\D/g, '');
+          if (cleanLOPhone.endsWith(cleanPhone.slice(-10)) || cleanPhone.endsWith(cleanLOPhone.slice(-10))) {
+            loanOfficerInfo = {
+              ...info,
+              phone: phone
+            };
             break;
           }
         }
 
-        customerInfo = foundCustomer || {
-          isWidgetCall: false,
-          customerName: null,
-          customerEmail: null,
-          customerPhone: call.from,
-          callType: 'standard'
-        };
+        // Identify the customer
+        let customerInfo = null;
+        const customerPhone = call.direction === 'inbound' ? call.from : call.to;
+        const cleanCustomerPhone = customerPhone.replace(/\D/g, '');
+
+        // Check if this is a known customer
+        for (const [phone, info] of Object.entries(knownCustomers)) {
+          const cleanPhone = phone.replace(/\D/g, '');
+          if (cleanCustomerPhone.endsWith(cleanPhone.slice(-10)) || cleanPhone.endsWith(cleanCustomerPhone.slice(-10))) {
+            customerInfo = {
+              ...info,
+              phone: customerPhone,
+              isKnown: true
+            };
+            break;
+          }
+        }
+
+        // If not a known customer, create basic info
+        if (!customerInfo) {
+          customerInfo = {
+            name: null,
+            email: null,
+            phone: customerPhone,
+            isKnown: false,
+            source: 'phone'
+          };
+        }
 
         return {
           sid: call.sid,
@@ -122,6 +153,7 @@ module.exports = async function handler(req, res) {
             dateCreated: recording.dateCreated,
             mediaUrl: `https://api.twilio.com${recording.uri.replace('.json', '.mp3')}`
           },
+          loanOfficerInfo: loanOfficerInfo,
           customerInfo: customerInfo
         };
       })
