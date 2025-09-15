@@ -1,5 +1,6 @@
 const axios = require('axios');
 const twilio = require('twilio');
+const { supabase } = require('../lib/supabase');
 
 // CORS headers for Vercel
 const corsHeaders = {
@@ -154,6 +155,35 @@ module.exports = async function handler(req, res) {
         // Format transcript with speakers
         const formattedTranscript = formatTranscript(transcript);
         console.log(`   Returning ${formattedTranscript.length} segments to frontend`);
+
+        // Save to Supabase
+        if (supabase) {
+          try {
+            const { error } = await supabase
+              .from('transcriptions')
+              .upsert({
+                recording_sid: recordingSid,
+                call_sid: callSid,
+                from_number: call ? call.from : null,
+                to_number: call ? call.to : null,
+                duration: transcript.audio_duration,
+                recording_url: recordingUrl,
+                transcript_text: JSON.stringify(formattedTranscript),
+                transcript_status: 'completed',
+                status: 'completed'
+              }, {
+                onConflict: 'recording_sid'
+              });
+
+            if (error) {
+              console.error('Failed to save to Supabase:', error);
+            } else {
+              console.log('✅ Saved transcript to Supabase');
+            }
+          } catch (err) {
+            console.error('Supabase save error:', err);
+          }
+        }
 
         return res.json({
           success: true,

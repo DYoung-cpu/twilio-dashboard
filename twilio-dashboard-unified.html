@@ -526,9 +526,6 @@
             <span id="twilio-status" class="status-item">Checking Twilio...</span>
             <span id="openai-status" class="status-item">Checking OpenAI...</span>
             <span id="call-count" class="status-item">0 calls</span>
-            <button onclick="transcribeAllNew()" style="background: #10b981; color: white; padding: 5px 10px; border-radius: 5px; border: none; cursor: pointer; font-size: 12px;">
-                📝 Transcribe All New
-            </button>
         </div>
     </div>
 
@@ -757,22 +754,6 @@
             }
         }
 
-        // Manual button to transcribe all new recordings
-        async function transcribeAllNew() {
-            const untranscribed = allCalls.filter(call =>
-                call.recording && !transcripts[call.recording.sid]
-            );
-
-            if (untranscribed.length === 0) {
-                alert('All recordings are already transcribed!');
-                return;
-            }
-
-            if (confirm(`This will transcribe ${untranscribed.length} recordings. Estimated cost: $${(untranscribed.length * 0.001).toFixed(3)}. Continue?`)) {
-                transcribeQueue = untranscribed;
-                autoTranscribeNew();
-            }
-        }
 
         // Auto-transcribe new recordings
         async function autoTranscribeNew() {
@@ -788,12 +769,14 @@
                 return;
             }
 
-            // SAFETY CHECK: Don't auto-transcribe more than 3 at once to prevent runaway costs
-            // This still allows individual clicks to work
-            if (transcribeQueue.length > 3) {
+            // SAFETY CHECK: Prevent any auto-transcription
+            // Only allow individual clicks to transcribe
+            if (transcribeQueue.length > 1) {
                 console.warn(`⚠️ Found ${transcribeQueue.length} recordings without transcripts`);
-                console.warn('Limiting to 3 transcriptions at once to prevent excessive costs.');
-                transcribeQueue = transcribeQueue.slice(0, 3);
+                console.warn('Auto-transcription disabled. Click individual calls to transcribe.');
+                transcribeQueue = [];
+                isAutoTranscribing = false;
+                return;
             }
 
             console.log(`Found ${transcribeQueue.length} NEW recording to transcribe`);

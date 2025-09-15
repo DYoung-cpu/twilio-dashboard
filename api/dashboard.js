@@ -58,10 +58,17 @@ module.exports = async function handler(req, res) {
         // For demo purposes, mark some calls as widget calls
         // In production, this would come from call metadata or a database
         const demoCustomers = {
-          '+19548286704': {
+          '+18189182433': {
             isWidgetCall: true,
             customerName: 'Federico Fernandez',
             customerEmail: 'federico@example.com',
+            customerPhone: '+18189182433',
+            callType: 'customer'
+          },
+          '+19548286704': {
+            isWidgetCall: true,
+            customerName: 'David Young',
+            customerEmail: 'david@lendwise.com',
             customerPhone: '+19548286704',
             callType: 'customer'
           },

@@ -1,3 +1,5 @@
+const { supabase } = require('../lib/supabase');
+
 module.exports = async (req, res) => {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -8,12 +10,58 @@ module.exports = async (req, res) => {
     return res.status(200).end();
   }
 
-  // For now, return empty transcripts since we don't have a database
-  // This will force fresh transcriptions from AssemblyAI
-  return res.json({
-    success: true,
-    transcripts: {},
-    count: 0,
-    totalCost: 0
-  });
+  try {
+    if (supabase) {
+      // Fetch from Supabase
+      const { data, error } = await supabase
+        .from('transcriptions')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Supabase error:', error);
+        return res.json({
+          success: true,
+          transcripts: {},
+          count: 0,
+          totalCost: 0
+        });
+      }
+
+      // Convert to expected format
+      const transcripts = {};
+      let totalCost = 0;
+
+      data.forEach(item => {
+        if (item.recording_sid) {
+          transcripts[item.recording_sid] = item.transcript_text || item;
+          totalCost += 0.001; // Estimate cost per transcription
+        }
+      });
+
+      return res.json({
+        success: true,
+        transcripts,
+        count: Object.keys(transcripts).length,
+        totalCost: totalCost.toFixed(4)
+      });
+    } else {
+      // No Supabase configured
+      return res.json({
+        success: true,
+        transcripts: {},
+        count: 0,
+        totalCost: 0
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching transcripts:', error);
+    return res.json({
+      success: false,
+      error: error.message,
+      transcripts: {},
+      count: 0,
+      totalCost: 0
+    });
+  }
 };
