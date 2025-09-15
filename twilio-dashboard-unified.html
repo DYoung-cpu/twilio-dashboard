@@ -526,6 +526,9 @@
             <span id="twilio-status" class="status-item">Checking Twilio...</span>
             <span id="openai-status" class="status-item">Checking OpenAI...</span>
             <span id="call-count" class="status-item">0 calls</span>
+            <button onclick="transcribeAllNew()" style="background: #10b981; color: white; padding: 5px 10px; border-radius: 5px; border: none; cursor: pointer; font-size: 12px;">
+                📝 Transcribe All New
+            </button>
         </div>
     </div>
 
@@ -725,13 +728,39 @@
                     displayCalls(data.calls);
 
                     // DON'T auto-transcribe all recordings (prevents unexpected costs)
-                    // autoTranscribeNew();
+                    // Click individual calls to transcribe them one at a time
                     console.log('Auto-transcription disabled. Click individual calls to transcribe.');
+
+                    // Check if there are untranscribed recordings
+                    const untranscribedCount = data.calls.filter(call =>
+                        call.recording && !transcripts[call.recording.sid]
+                    ).length;
+
+                    if (untranscribedCount > 0) {
+                        console.log(`${untranscribedCount} recordings need transcription. Click them to transcribe.`);
+                    }
                 } else {
                     listEl.innerHTML = '<div class="empty-state">No calls found</div>';
                 }
             } catch (error) {
                 listEl.innerHTML = '<div class="empty-state">Failed to load calls: ' + error.message + '</div>';
+            }
+        }
+
+        // Manual button to transcribe all new recordings
+        async function transcribeAllNew() {
+            const untranscribed = allCalls.filter(call =>
+                call.recording && !transcripts[call.recording.sid]
+            );
+
+            if (untranscribed.length === 0) {
+                alert('All recordings are already transcribed!');
+                return;
+            }
+
+            if (confirm(`This will transcribe ${untranscribed.length} recordings. Estimated cost: $${(untranscribed.length * 0.001).toFixed(3)}. Continue?`)) {
+                transcribeQueue = untranscribed;
+                autoTranscribeNew();
             }
         }
 
@@ -749,11 +778,12 @@
                 return;
             }
 
-            // SAFETY CHECK: Don't auto-transcribe more than 1 at a time
-            if (transcribeQueue.length > 1) {
+            // SAFETY CHECK: Don't auto-transcribe more than 3 at once to prevent runaway costs
+            // This still allows individual clicks to work
+            if (transcribeQueue.length > 3) {
                 console.warn(`⚠️ Found ${transcribeQueue.length} recordings without transcripts`);
-                console.warn('Auto-transcription disabled to prevent costs. Click individual calls to transcribe.');
-                return;
+                console.warn('Limiting to 3 transcriptions at once to prevent excessive costs.');
+                transcribeQueue = transcribeQueue.slice(0, 3);
             }
 
             console.log(`Found ${transcribeQueue.length} NEW recording to transcribe`);
