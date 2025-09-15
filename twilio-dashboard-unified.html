@@ -992,6 +992,14 @@
             // Show existing transcript if we have it
             if (transcripts[recordingSid]) {
                 console.log('Using existing transcript for', recordingSid, '- no API call needed');
+                console.log('Transcript data:', transcripts[recordingSid]);
+                console.log('Transcript type:', typeof transcripts[recordingSid]);
+                console.log('Is array?', Array.isArray(transcripts[recordingSid]));
+                if (Array.isArray(transcripts[recordingSid])) {
+                    console.log('Number of segments:', transcripts[recordingSid].length);
+                    console.log('First 3 segments:', transcripts[recordingSid].slice(0, 3));
+                    console.log('Last 3 segments:', transcripts[recordingSid].slice(-3));
+                }
                 processAndDisplayTranscript(transcripts[recordingSid]);
             } else {
                 console.log('No transcript found for', recordingSid, '- will need to transcribe (costs money)');
@@ -1249,7 +1257,15 @@
 
         // Display transcript with speaker labels
         function displayTranscript() {
-            if (!currentTranscript) return;
+            console.log('=== DISPLAY TRANSCRIPT CALLED ===');
+            console.log('currentTranscript:', currentTranscript);
+            console.log('currentTranscript type:', typeof currentTranscript);
+            console.log('currentTranscript is array?', Array.isArray(currentTranscript));
+
+            if (!currentTranscript) {
+                console.log('No currentTranscript - returning');
+                return;
+            }
 
             const transcriptBox = document.getElementById('transcript-box');
             transcriptBox.innerHTML = '';
@@ -1257,7 +1273,12 @@
             // First, check if any segments contain mixed speakers and split them
             const processedSegments = splitMixedSegments(currentTranscript);
 
-            processedSegments.forEach(segment => {
+            console.log('After splitMixedSegments:');
+            console.log('processedSegments length:', processedSegments.length);
+            console.log('processedSegments:', processedSegments);
+
+            processedSegments.forEach((segment, index) => {
+                console.log(`Displaying segment ${index + 1}/${processedSegments.length}:`, segment);
                 const speakerType = speakerMapping[segment.speaker] || 'customer';
 
                 // Get the actual name if identified, otherwise use generic label
@@ -1521,9 +1542,19 @@
 
         // Split segments that contain mixed speakers
         function splitMixedSegments(segments) {
+            console.log('=== SPLIT MIXED SEGMENTS CALLED ===');
+            console.log('Input segments:', segments);
+            console.log('Input segments length:', segments?.length);
+
             const processed = [];
 
+            if (!segments || !Array.isArray(segments)) {
+                console.log('segments is not an array, returning empty array');
+                return processed;
+            }
+
             segments.forEach((segment, index) => {
+                console.log(`Processing segment ${index + 1}/${segments.length}:`, segment);
                 const text = segment.text;
 
                 // Check for patterns that indicate mixed speakers in one segment
@@ -1564,6 +1595,10 @@
                     processed.push(segment);
                 }
             });
+
+            console.log('=== SPLIT MIXED SEGMENTS RESULT ===');
+            console.log('Returning processed segments:', processed.length, 'segments');
+            console.log('Processed segments:', processed);
 
             return processed;
         }
