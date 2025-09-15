@@ -692,28 +692,23 @@
             }
         }
 
-        // Load existing transcripts from localStorage (not API to avoid costs)
+        // Load existing transcripts from Supabase
         async function loadTranscripts() {
             try {
-                // First try localStorage
-                const saved = localStorage.getItem('transcripts');
-                if (saved) {
-                    transcripts = JSON.parse(saved);
-                    const count = Object.keys(transcripts).length;
-                    console.log(`Loaded ${count} existing transcripts from localStorage (no API cost)`);
-                    return;
-                }
-
-                // If no localStorage, check API (but this returns empty now)
+                // Always fetch from API (Supabase)
                 const response = await fetch(`${API_BASE}/transcripts`);
                 const data = await response.json();
 
                 if (data.success && data.transcripts) {
                     transcripts = data.transcripts;
-                    console.log(`Loaded ${data.count} existing transcripts (Total cost: $${data.totalCost})`);
+                    console.log(`Loaded ${data.count} transcripts from Supabase (Total cost: $${data.totalCost})`);
+                } else {
+                    transcripts = {};
+                    console.log('No transcripts found in Supabase');
                 }
             } catch (error) {
                 console.error('Failed to load transcripts:', error);
+                transcripts = {};
             }
         }
 
@@ -843,13 +838,8 @@
                             transcripts[call.recording.sid] = data.transcript;
                         }
 
-                        // Save to localStorage to persist across refreshes
-                        try {
-                            localStorage.setItem('transcripts', JSON.stringify(transcripts));
-                            console.log('Saved transcripts to localStorage');
-                        } catch (e) {
-                            console.warn('Failed to save to localStorage:', e);
-                        }
+                        // Transcripts are already saved to Supabase via the transcribe API
+                        console.log('Transcript saved to Supabase');
 
                         // Update display
                         const callItem = document.querySelector(`[data-recording="${call.recording.sid}"]`);
@@ -1065,8 +1055,7 @@
                 console.log(`Cleared ${clearedCount} old string transcripts`);
                 alert(`Cleared ${clearedCount} old transcripts. Click on calls to re-transcribe with proper speaker segmentation.`);
 
-                // Clear localStorage too
-                localStorage.removeItem('transcripts');
+                // Transcripts cleared from memory (Supabase remains unchanged)
 
                 // Refresh the display
                 document.getElementById('transcript-box').innerHTML =
