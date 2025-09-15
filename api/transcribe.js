@@ -48,24 +48,28 @@ module.exports = async function handler(req, res) {
     console.log(`   Channels: ${recording.channels}`);
 
     // Download audio with proper timeout and size limits
+    // IMPORTANT: Remove size limits that might truncate the download
     const audioResponse = await axios.get(recordingUrl, {
       responseType: 'arraybuffer',
       auth: {
         username: process.env.TWILIO_ACCOUNT_SID,
         password: process.env.TWILIO_AUTH_TOKEN
       },
-      timeout: 30000, // 30 second timeout
-      maxContentLength: 50 * 1024 * 1024, // 50MB max
-      maxBodyLength: 50 * 1024 * 1024
+      timeout: 60000, // 60 second timeout for larger files
+      maxContentLength: Infinity, // No limit
+      maxBodyLength: Infinity // No limit
     });
 
     const audioSizeKB = audioResponse.data.byteLength / 1024;
-    console.log(`   Downloaded: ${audioSizeKB.toFixed(2)} KB`);
+    const audioSizeMB = audioSizeKB / 1024;
+    console.log(`   Downloaded: ${audioSizeKB.toFixed(2)} KB (${audioSizeMB.toFixed(2)} MB)`);
+    console.log(`   Expected duration: ${recording.duration}s`);
 
-    // Check for truncation
-    const expectedMinSizeKB = recording.duration * 8; // Conservative estimate
-    if (audioSizeKB < expectedMinSizeKB) {
-      console.warn(`⚠️ Audio might be truncated! Expected at least ${expectedMinSizeKB}KB, got ${audioSizeKB}KB`);
+    // Check for truncation - Twilio recordings are typically 64kbps
+    const expectedMinSizeKB = (recording.duration * 64) / 8; // 64kbps = 8KB/s
+    if (audioSizeKB < expectedMinSizeKB * 0.8) { // Allow 20% variance
+      console.error(`❌ AUDIO TRUNCATED! Expected ~${expectedMinSizeKB.toFixed(0)}KB for ${recording.duration}s, got ${audioSizeKB.toFixed(0)}KB`);
+      console.error(`   This is only ${((audioSizeKB / expectedMinSizeKB) * recording.duration).toFixed(1)}s of audio!`);
     }
 
     // Upload to AssemblyAI
