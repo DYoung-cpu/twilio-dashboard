@@ -1,4 +1,5 @@
 const twilio = require('twilio');
+const { supabase } = require('../lib/supabase');
 
 // CORS headers
 const corsHeaders = {
@@ -45,6 +46,32 @@ module.exports = async function handler(req, res) {
     recordings.forEach(recording => {
       recordingMap[recording.callSid] = recording;
     });
+
+    // Fetch customer data from Supabase
+    let customerDataMap = {};
+    if (supabase) {
+      try {
+        const { data: transcriptionData, error } = await supabase
+          .from('transcriptions')
+          .select('call_sid, customer_name, customer_email, customer_phone, from_number, to_number');
+
+        if (!error && transcriptionData) {
+          transcriptionData.forEach(item => {
+            if (item.call_sid) {
+              customerDataMap[item.call_sid] = {
+                name: item.customer_name,
+                email: item.customer_email,
+                phone: item.customer_phone || item.from_number,
+                source: item.customer_name ? 'widget' : 'direct'
+              };
+            }
+          });
+          console.log(`Loaded customer data for ${Object.keys(customerDataMap).length} calls from Supabase`);
+        }
+      } catch (err) {
+        console.error('Error fetching customer data from Supabase:', err);
+      }
+    }
 
     // Loan Officer Phone Number Mapping
     // Maps Twilio phone numbers to loan officers
@@ -168,25 +195,34 @@ module.exports = async function handler(req, res) {
           console.log(`  ✗ No match found for ${loanOfficerPhone} (cleaned: ${cleanLOPhone})`);
         }
 
-        // Identify the customer
+        // Identify the customer - first check Supabase data
         let customerInfo = null;
         const customerPhone = call.direction === 'inbound' ? call.from : call.to;
         const cleanCustomerPhone = customerPhone.replace(/\D/g, '');
 
-        // Check if this is a known customer
-        for (const [phone, info] of Object.entries(knownCustomers)) {
-          const cleanPhone = phone.replace(/\D/g, '');
-          if (cleanCustomerPhone.endsWith(cleanPhone.slice(-10)) || cleanPhone.endsWith(cleanCustomerPhone.slice(-10))) {
-            customerInfo = {
-              ...info,
-              phone: customerPhone,
-              isKnown: true
-            };
-            break;
+        // Check if we have customer data from Supabase for this call
+        if (customerDataMap[call.sid]) {
+          customerInfo = {
+            ...customerDataMap[call.sid],
+            isKnown: true
+          };
+          console.log(`Found customer data from Supabase for call ${call.sid}: ${customerInfo.name}`);
+        } else {
+          // Fall back to checking known customers list
+          for (const [phone, info] of Object.entries(knownCustomers)) {
+            const cleanPhone = phone.replace(/\D/g, '');
+            if (cleanCustomerPhone.endsWith(cleanPhone.slice(-10)) || cleanPhone.endsWith(cleanCustomerPhone.slice(-10))) {
+              customerInfo = {
+                ...info,
+                phone: customerPhone,
+                isKnown: true
+              };
+              break;
+            }
           }
         }
 
-        // If not a known customer, create basic info
+        // If still not found, create basic info
         if (!customerInfo) {
           customerInfo = {
             name: null,
