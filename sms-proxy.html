@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMS to Tony - Direct Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2e7d32;
+            text-align: center;
+        }
+        .info {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        textarea {
+            min-height: 100px;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background: #2e7d32;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #1b5e20;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+        .log {
+            background: #000;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 Direct SMS Test to Tony</h1>
+
+        <div class="info">
+            <strong>How this works:</strong><br>
+            • Sends SMS directly to Tony's cell: (818) 391-9142<br>
+            • Uses an image tag to bypass CORS restrictions<br>
+            • Check the console log below to see what's happening
+        </div>
+
+        <div class="form-group">
+            <label for="message">Test Message:</label>
+            <textarea id="message" placeholder="Hi Tony, this is a test message...">Testing SMS system - please reply "Got it!" to confirm you received this.</textarea>
+        </div>
+
+        <button onclick="sendSMS()">Send SMS to Tony</button>
+
+        <div id="status" class="status"></div>
+
+        <div class="log" id="log">
+            <div>Console Log:</div>
+            <div>============</div>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.style.color = type === 'error' ? '#f00' : type === 'success' ? '#0f0' : '#fff';
+            entry.textContent = `[${time}] ${message}`;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function sendSMS() {
+            const message = document.getElementById('message').value.trim();
+            const status = document.getElementById('status');
+
+            if (!message) {
+                status.className = 'status error';
+                status.textContent = 'Please enter a message';
+                return;
+            }
+
+            // Generate a unique ID
+            const convId = 'test_' + Date.now().toString(36).substr(-6);
+
+            log(`Generating conversation ID: ${convId}`, 'info');
+
+            // Prepare the SMS content
+            const smsContent = `[${convId}] Test from web widget:\n\n${message}\n\nReply with [${convId}] to test response.`;
+
+            log(`Message prepared: "${smsContent}"`, 'info');
+
+            // Create form data
+            const data = {
+                conversationId: convId,
+                customerName: 'David Young',
+                customerPhone: '+19544703737',
+                message: smsContent
+            };
+
+            log(`Sending to API...`, 'info');
+
+            // Try multiple methods
+
+            // Method 1: Using image tag (bypasses CORS)
+            const img = new Image();
+            const params = new URLSearchParams({
+                action: 'send',
+                data: JSON.stringify(data)
+            });
+
+            img.onload = function() {
+                log('Image method: Request sent (no response available)', 'success');
+            };
+
+            img.onerror = function() {
+                log('Image method: Request may have sent (check Tony\'s phone)', 'info');
+            };
+
+            img.src = `https://twilio-dashboard-psi.vercel.app/api/twilio-sms-chat?${params}`;
+
+            // Method 2: Using fetch with no-cors
+            fetch('https://twilio-dashboard-psi.vercel.app/api/twilio-sms-chat', {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }).then(() => {
+                log('Fetch no-cors: Request sent (no response available)', 'success');
+                status.className = 'status success';
+                status.innerHTML = `
+                    ✅ <strong>SMS Request Sent!</strong><br><br>
+                    📱 Check Tony's phone: (818) 391-9142<br>
+                    🆔 Conversation ID: ${convId}<br><br>
+                    Since we're bypassing CORS, we can't see the response,<br>
+                    but Tony should receive the message within seconds.
+                `;
+            }).catch(error => {
+                log(`Fetch error: ${error.message}`, 'error');
+            });
+
+            // Method 3: Create a hidden form and submit it
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = 'https://twilio-dashboard-psi.vercel.app/api/twilio-sms-chat';
+            form.target = 'hidden_iframe';
+
+            Object.keys(data).forEach(key => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = typeof data[key] === 'object' ? JSON.stringify(data[key]) : data[key];
+                form.appendChild(input);
+            });
+
+            // Create hidden iframe
+            const iframe = document.createElement('iframe');
+            iframe.name = 'hidden_iframe';
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+
+            iframe.onload = function() {
+                log('Form method: Request completed', 'success');
+            };
+
+            document.body.appendChild(form);
+
+            log('Attempting form submission...', 'info');
+
+            try {
+                form.submit();
+                log('Form submitted', 'success');
+            } catch (e) {
+                log(`Form submission error: ${e.message}`, 'error');
+            }
+        }
+
+        // Log initial state
+        log('SMS Test Console Ready', 'success');
+        log('Target: Tony Nasim - (818) 391-9142', 'info');
+    </script>
+</body>
+</html>

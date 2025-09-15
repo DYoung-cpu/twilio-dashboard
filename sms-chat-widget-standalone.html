@@ -252,9 +252,86 @@
             background: #d4edda;
             color: #155724;
         }
+        .debug-panel {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            width: 400px;
+            max-height: 600px;
+            background: rgba(0, 0, 0, 0.9);
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #0f0;
+            overflow-y: auto;
+            z-index: 9999;
+        }
+
+        .debug-panel h3 {
+            color: #0f0;
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            border-bottom: 1px solid #0f0;
+            padding-bottom: 5px;
+        }
+
+        .debug-entry {
+            margin-bottom: 10px;
+            padding: 8px;
+            background: rgba(0, 255, 0, 0.1);
+            border-left: 3px solid #0f0;
+        }
+
+        .debug-error {
+            color: #f00;
+            background: rgba(255, 0, 0, 0.1);
+            border-left-color: #f00;
+        }
+
+        .debug-success {
+            color: #0f0;
+            background: rgba(0, 255, 0, 0.1);
+        }
+
+        .debug-info {
+            color: #00f;
+            background: rgba(0, 0, 255, 0.1);
+            border-left-color: #00f;
+        }
+
+        .debug-time {
+            color: #888;
+            font-size: 10px;
+        }
+
+        .debug-close {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            color: #f00;
+            cursor: pointer;
+            font-size: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .debug-panel {
+                width: calc(100% - 40px);
+                right: 20px;
+                left: 20px;
+            }
+        }
     </style>
 </head>
 <body>
+    <!-- Debug Panel -->
+    <div class="debug-panel" id="debugPanel">
+        <span class="debug-close" onclick="toggleDebug()">×</span>
+        <h3>🔧 Debug Console</h3>
+        <div id="debugLog"></div>
+    </div>
+
     <div class="chat-container">
         <div class="chat-header">
             <div class="agent-avatar">TN</div>
@@ -324,6 +401,28 @@
         let pollInterval = null;
         let lastMessageId = null;
 
+        // Debug logging
+        function debugLog(message, type = 'info') {
+            const debugEl = document.getElementById('debugLog');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `debug-entry debug-${type}`;
+            entry.innerHTML = `
+                <span class="debug-time">[${time}]</span> ${message}
+            `;
+            debugEl.insertBefore(entry, debugEl.firstChild);
+
+            // Keep only last 50 entries
+            while (debugEl.children.length > 50) {
+                debugEl.removeChild(debugEl.lastChild);
+            }
+        }
+
+        function toggleDebug() {
+            const panel = document.getElementById('debugPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+
         // Generate unique conversation ID
         function generateConversationId() {
             return 'conv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -348,14 +447,18 @@
             customerName = nameInput.value.trim();
             customerPhone = formatPhoneNumber(phoneInput.value.trim());
 
+            debugLog(`Starting chat for ${customerName} (${customerPhone})`, 'info');
+
             if (!customerName || !customerPhone) {
                 showStatus('Please enter your name and phone number', 'error');
+                debugLog('Missing name or phone number', 'error');
                 return;
             }
 
             // Generate conversation ID
             conversationId = generateConversationId();
             const shortId = conversationId.substr(-6);
+            debugLog(`Generated conversation ID: ${conversationId} (short: ${shortId})`, 'success');
 
             // Hide form, show chat
             document.getElementById('startForm').classList.add('hidden');
@@ -364,6 +467,10 @@
 
             // Send initial message to Tony
             const initialMessage = `New chat from ${customerName} (${customerPhone})\nReply with [${shortId}] before your message.\nConversation ID: ${shortId}`;
+
+            debugLog(`Sending initial message to API...`, 'info');
+            debugLog(`URL: ${API_BASE}/twilio-sms-chat`, 'info');
+            debugLog(`Message: ${initialMessage}`, 'info');
 
             try {
                 const response = await fetch(`${API_BASE}/twilio-sms-chat`, {
@@ -380,7 +487,11 @@
                     })
                 });
 
+                debugLog(`API Response Status: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+
                 if (response.ok) {
+                    const data = await response.json();
+                    debugLog(`API Response: ${JSON.stringify(data)}`, 'success');
                     showStatus('Connected! Tony has been notified.', 'success');
 
                     // Add system message to chat
@@ -389,10 +500,13 @@
                     // Start polling for replies
                     startPolling();
                 } else {
+                    const errorText = await response.text();
+                    debugLog(`API Error: ${errorText}`, 'error');
                     throw new Error('Failed to start chat');
                 }
             } catch (error) {
                 console.error('Error starting chat:', error);
+                debugLog(`Error: ${error.message}`, 'error');
                 showStatus('Failed to connect. Please try again.', 'error');
 
                 // Reset form
@@ -423,6 +537,10 @@
 
             try {
                 const shortId = conversationId.substr(-6);
+                const fullMessage = `[${shortId}] ${customerName}: ${message}`;
+
+                debugLog(`Sending message: "${message}"`, 'info');
+                debugLog(`Full SMS to Tony: "${fullMessage}"`, 'info');
 
                 // Send to Tony's phone
                 const response = await fetch(`${API_BASE}/twilio-sms-chat`, {
@@ -434,16 +552,23 @@
                         conversationId,
                         customerName,
                         customerPhone,
-                        message: `[${shortId}] ${customerName}: ${message}`
+                        message: fullMessage
                     })
                 });
 
+                debugLog(`Message API Response: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+
                 if (!response.ok) {
+                    const errorText = await response.text();
+                    debugLog(`Send Error: ${errorText}`, 'error');
                     throw new Error('Failed to send message');
+                } else {
+                    debugLog(`Message sent successfully to Tony's phone: 818-391-9142`, 'success');
                 }
 
             } catch (error) {
                 console.error('Error sending message:', error);
+                debugLog(`Error sending: ${error.message}`, 'error');
                 showStatus('Failed to send. Tony might not receive this message.', 'error');
             } finally {
                 // Re-enable input
@@ -482,15 +607,22 @@
 
         // Start polling for new messages
         function startPolling() {
+            debugLog('Started polling for Tony\'s replies (every 3 seconds)', 'info');
+
             // Poll every 3 seconds
             pollInterval = setInterval(async () => {
                 try {
-                    const response = await fetch(`${API_BASE}/conversations?conversationId=${conversationId}&lastMessageId=${lastMessageId || ''}`);
+                    const url = `${API_BASE}/conversations?conversationId=${conversationId}&lastMessageId=${lastMessageId || ''}`;
+                    debugLog(`Polling: ${url}`, 'info');
+
+                    const response = await fetch(url);
                     const data = await response.json();
 
                     if (data.messages && data.messages.length > 0) {
+                        debugLog(`Found ${data.messages.length} new message(s)!`, 'success');
                         data.messages.forEach(msg => {
                             if (msg.sender === 'tony' && msg.id !== lastMessageId) {
+                                debugLog(`New message from Tony: "${msg.text}"`, 'success');
                                 addMessage(msg.text, 'received');
                                 lastMessageId = msg.id;
                             }
@@ -498,6 +630,7 @@
                     }
                 } catch (error) {
                     console.error('Error polling for messages:', error);
+                    debugLog(`Polling error: ${error.message}`, 'error');
                 }
             }, 3000);
         }
