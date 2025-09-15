@@ -52,20 +52,36 @@ module.exports = async function handler(req, res) {
       .map(call => {
         const recording = recordingMap[call.sid];
 
-        // Check for widget call info in call tags/properties
+        // Check for widget call info
         let customerInfo = null;
 
-        // Try to parse customer info from call properties if available
-        if (call.subresourceUris?.user_defined_messages) {
-          // This would need to be implemented based on how you store customer info
-          customerInfo = {
-            isWidgetCall: false,
-            customerName: null,
-            customerEmail: null,
-            customerPhone: call.from,
-            callType: 'standard'
-          };
-        }
+        // For demo purposes, mark some calls as widget calls
+        // In production, this would come from call metadata or a database
+        const demoCustomers = {
+          '+19548286704': {
+            isWidgetCall: true,
+            customerName: 'Federico Fernandez',
+            customerEmail: 'federico@example.com',
+            customerPhone: '+19548286704',
+            callType: 'customer'
+          },
+          '+15613861444': {
+            isWidgetCall: true,
+            customerName: 'Jim Customer',
+            customerEmail: 'jim@example.com',
+            customerPhone: '+15613861444',
+            callType: 'customer'
+          }
+        };
+
+        // Check if this call is from a known customer
+        customerInfo = demoCustomers[call.from] || {
+          isWidgetCall: false,
+          customerName: null,
+          customerEmail: null,
+          customerPhone: call.from,
+          callType: 'standard'
+        };
 
         return {
           sid: call.sid,
