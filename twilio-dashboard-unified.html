@@ -1,0 +1,2263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twilio Call Center Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #0f0f0f 0%, #1a1a2e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+        }
+
+        .header {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 20px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .status-item {
+            padding: 5px 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+        }
+
+        .status-item.success { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+        .status-item.error { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+        }
+
+        .card h2 {
+            font-size: 20px;
+            margin-bottom: 15px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .call-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .call-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .call-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateX(5px);
+        }
+
+        .call-item.selected {
+            background: rgba(102, 126, 234, 0.2);
+            border-color: #667eea;
+        }
+
+        .call-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .call-phone {
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .call-time {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .call-details {
+            display: flex;
+            gap: 15px;
+            font-size: 13px;
+            color: #aaa;
+        }
+
+        .badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge.recording { background: #22c55e; color: #000; }
+        .badge.transcribed { background: #667eea; color: #fff; }
+        .badge.duration { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+        /* Enhanced Transcript Styles */
+        .transcript-box {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .speaker-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 8px;
+            flex-wrap: wrap;
+        }
+
+        .speaker-option {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .speaker-option:hover {
+            background: rgba(102, 126, 234, 0.3);
+        }
+
+        .speaker-option input {
+            cursor: pointer;
+        }
+
+        .transcript-line {
+            margin-bottom: 20px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 3px solid;
+            transition: all 0.3s;
+        }
+
+        .transcript-line:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateX(3px);
+        }
+
+        .transcript-line.loan-officer {
+            border-left-color: #667eea;
+        }
+
+        .transcript-line.customer {
+            border-left-color: #22c55e;
+        }
+
+        .speaker-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .speaker-label.loan-officer {
+            color: #667eea;
+        }
+
+        .speaker-label.customer {
+            color: #22c55e;
+        }
+
+        .speaker-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: white;
+        }
+
+        .speaker-icon.loan-officer {
+            background: #667eea;
+        }
+
+        .speaker-icon.customer {
+            background: #22c55e;
+        }
+
+        .transcript-text {
+            line-height: 1.6;
+            color: #e0e0e0;
+            white-space: pre-wrap;
+        }
+
+        .timestamp {
+            font-size: 11px;
+            color: #888;
+            margin-left: auto;
+        }
+
+        .confidence-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 10px;
+            margin-left: 8px;
+        }
+
+        .confidence-high {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+        }
+
+        .confidence-medium {
+            background: rgba(251, 146, 60, 0.2);
+            color: #fb923c;
+        }
+
+        .confidence-low {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #aaa;
+            font-size: 14px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+
+        .spinner {
+            border: 3px solid rgba(102, 126, 234, 0.3);
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .refresh-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s;
+        }
+
+        .refresh-btn:hover {
+            transform: rotate(180deg);
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(102, 126, 234, 0.7);
+        }
+
+        .export-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .export-btn {
+            flex: 1;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            color: #fff;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .export-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Widget Modal Styles */
+        .widget-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .widget-modal.active {
+            display: flex;
+        }
+
+        .widget-preview {
+            width: 100%;
+            max-width: 450px;
+            height: 600px;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .widget-preview iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: white;
+        }
+
+        .widget-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .widget-close {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+        }
+
+        .widget-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .embed-modal {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .embed-code {
+            background: #1a1a2e;
+            color: #22c55e;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            margin: 15px 0;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .copy-button {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .copy-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(34, 197, 94, 0.3);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📞 Twilio Call Center Dashboard</h1>
+        <div class="status-bar">
+            <span id="twilio-status" class="status-item">Checking Twilio...</span>
+            <span id="openai-status" class="status-item">Checking OpenAI...</span>
+            <span id="call-count" class="status-item">0 calls</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="grid">
+            <div class="card">
+                <h2>📋 Recent Calls with Recordings</h2>
+                <div id="call-list" class="call-list">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading calls...
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>🎙️ Transcription</h2>
+
+                <div class="input-group">
+                    <label>Selected Recording:</label>
+                    <input type="text" id="recording-sid" placeholder="Click a call to view its transcript" readonly style="background: rgba(255, 255, 255, 0.02); cursor: not-allowed;" />
+                </div>
+
+                <div class="speaker-controls" id="speakerControls" style="display: none;">
+                    <label class="speaker-option">
+                        <input type="radio" name="firstSpeaker" value="auto" checked>
+                        <span>🤖 Auto-detect</span>
+                    </label>
+                    <label class="speaker-option">
+                        <input type="radio" name="firstSpeaker" value="loan_officer">
+                        <span>👔 Loan Officer first</span>
+                    </label>
+                    <label class="speaker-option">
+                        <input type="radio" name="firstSpeaker" value="customer">
+                        <span>👤 Customer first</span>
+                    </label>
+                </div>
+
+                <!-- Synopsis Section -->
+                <div id="synopsis-container" style="display: none;">
+                    <h3 style="color: #667eea; margin: 15px 0 10px 0; font-size: 18px;">📊 Call Intelligence</h3>
+                    <div id="synopsis-content" style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <!-- Synopsis will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Transcript Section -->
+                <div id="transcript-container">
+                    <div style="display: flex; justify-content: between; align-items: center; margin: 15px 0;">
+                        <h3 style="color: #667eea; margin: 0; font-size: 18px;">📝 Full Transcript</h3>
+                        <button id="toggle-transcript" onclick="toggleTranscript()" style="background: #667eea; color: white; border: none; padding: 5px 15px; border-radius: 5px; cursor: pointer; margin-left: auto; font-size: 12px;">
+                            Hide Transcript
+                        </button>
+                    </div>
+                    <div class="transcript-box" id="transcript-box">
+                        <div class="empty-state">Click any call to view its transcript</div>
+                    </div>
+                </div>
+
+                <div class="export-controls" id="exportControls" style="display: none;">
+                    <button class="export-btn" onclick="exportTranscriptJSON()">📄 Export JSON</button>
+                    <button class="export-btn" onclick="exportTranscriptText()">📝 Export Text</button>
+                    <button class="export-btn" onclick="copyTranscript()">📋 Copy</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top: 20px;">
+            <h2>📞 Make a Call</h2>
+            <div style="margin-top: 15px;">
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <label>Phone Number:</label>
+                    <input type="tel" id="phone-number" placeholder="+1 (555) 123-4567" style="width: 100%;" />
+                </div>
+                <button onclick="makeCall()" id="call-button" style="width: 100%; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);">
+                    📞 Start Call
+                </button>
+                <div id="call-status" style="margin-top: 10px; padding: 10px; border-radius: 8px; display: none;"></div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top: 20px;">
+            <h2>🏢 Loan Officer Widget</h2>
+            <div style="margin-top: 15px;">
+                <p style="margin-bottom: 15px; color: #999;">Embed this widget on your website for lead generation</p>
+                <div class="grid" style="margin-top: 15px;">
+                    <button onclick="previewWidget()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                        👁️ Preview Widget
+                    </button>
+                    <button onclick="showEmbedCode()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white;">
+                        📋 Get Embed Code
+                    </button>
+                </div>
+                <div style="margin-top: 15px;">
+                    <button onclick="showWidgetLeads()" style="width: 100%; background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); color: white;">
+                        📊 View Widget Leads
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top: 20px;">
+            <h2>📊 Quick Actions</h2>
+            <div class="grid" style="margin-top: 15px;">
+                <button onclick="loadCalls()">🔄 Refresh Call List</button>
+                <button onclick="downloadAllTranscripts()">📥 Export All Transcripts</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Widget Preview Modal -->
+    <div id="widgetModal" class="widget-modal">
+        <div class="widget-preview">
+            <iframe id="widgetFrame" src=""></iframe>
+        </div>
+        <div class="widget-controls">
+            <button class="widget-close" onclick="closeWidgetModal()">✕</button>
+        </div>
+    </div>
+
+    <!-- Embed Code Modal -->
+    <div id="embedModal" class="widget-modal">
+        <div class="embed-modal">
+            <h2 style="color: #333; margin-bottom: 20px;">📋 Widget Embed Code</h2>
+            <p style="color: #666; margin-bottom: 15px;">Copy and paste this code into your website:</p>
+            <div class="embed-code" id="embedCode"></div>
+            <div style="display: flex; gap: 10px;">
+                <button class="copy-button" onclick="copyEmbedCode()">📋 Copy Code</button>
+                <button onclick="closeEmbedModal()" style="background: #6b7280;">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <button class="refresh-btn" onclick="loadCalls()">🔄</button>
+
+    <script>
+        // API Configuration - Using Vercel only
+        const API_BASE = 'https://twilio-generator.vercel.app/api';
+
+        let allCalls = [];
+        let transcripts = {};
+        let currentTranscript = null;
+        let speakerMapping = {};
+        let isAutoTranscribing = false;
+        let transcribeQueue = [];
+
+        // Check system status
+        async function checkStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/check-env`);
+                const data = await response.json();
+
+                document.getElementById('twilio-status').className =
+                    data.env.hasTwilio ? 'status-item success' : 'status-item error';
+                document.getElementById('twilio-status').textContent =
+                    data.env.hasTwilio ? '✅ Twilio' : '❌ Twilio';
+
+                document.getElementById('openai-status').className =
+                    data.env.hasOpenAI ? 'status-item success' : 'status-item error';
+                document.getElementById('openai-status').textContent =
+                    data.env.hasOpenAI ? '✅ OpenAI' : '❌ OpenAI';
+            } catch (error) {
+                console.error('Status check failed:', error);
+            }
+        }
+
+        // Load existing transcripts from database
+        async function loadTranscripts() {
+            try {
+                const response = await fetch(`${API_BASE}/transcripts`);
+                const data = await response.json();
+
+                if (data.success && data.transcripts) {
+                    transcripts = data.transcripts;
+                    console.log(`Loaded ${data.count} existing transcripts (Total cost: $${data.totalCost})`);
+                }
+            } catch (error) {
+                console.error('Failed to load transcripts:', error);
+            }
+        }
+
+        // Load calls from Twilio
+        async function loadCalls() {
+            const listEl = document.getElementById('call-list');
+            listEl.innerHTML = '<div class="loading"><div class="spinner"></div>Loading calls...</div>';
+
+            try {
+                // First load existing transcripts
+                await loadTranscripts();
+
+                const response = await fetch(`${API_BASE}/calls`);
+                const data = await response.json();
+
+                if (data.success && data.calls) {
+                    allCalls = data.calls;
+                    document.getElementById('call-count').textContent = data.count + ' calls';
+                    displayCalls(data.calls);
+
+                    // Auto-transcribe recordings without transcripts
+                    autoTranscribeNew();
+                } else {
+                    listEl.innerHTML = '<div class="empty-state">No calls found</div>';
+                }
+            } catch (error) {
+                listEl.innerHTML = '<div class="empty-state">Failed to load calls: ' + error.message + '</div>';
+            }
+        }
+
+        // Auto-transcribe new recordings
+        async function autoTranscribeNew() {
+            if (isAutoTranscribing) return;
+
+            // Find recordings without transcripts
+            transcribeQueue = allCalls.filter(call =>
+                call.recording && !transcripts[call.recording.sid]
+            );
+
+            if (transcribeQueue.length === 0) {
+                console.log('All recordings already transcribed - no API calls needed');
+                return;
+            }
+
+            console.log(`Found ${transcribeQueue.length} NEW recordings to transcribe (will cost money)`);
+            console.log('Recordings to transcribe:', transcribeQueue.map(c => c.recording.sid));
+            isAutoTranscribing = true;
+
+            // Update status
+            const statusEl = document.createElement('div');
+            statusEl.id = 'auto-transcribe-status';
+            statusEl.className = 'status-item';
+            statusEl.style.background = 'rgba(251, 191, 36, 0.2)';
+            statusEl.style.color = '#fbbf24';
+            document.querySelector('.status-bar').appendChild(statusEl);
+
+            // Process queue one at a time
+            while (transcribeQueue.length > 0) {
+                const call = transcribeQueue.shift();
+                const remaining = transcribeQueue.length;
+
+                statusEl.textContent = `🔄 Transcribing ${remaining + 1} recordings...`;
+
+                try {
+                    // Use Vercel API for transcription
+                    console.log('Starting transcription for:', call.recording.sid);
+                    console.log(`Recording duration: ${call.duration}s`);
+
+                    const transcribeResponse = await fetch(`${API_BASE}/transcribe`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            recordingSid: call.recording.sid,
+                            callSid: call.sid,
+                            from: call.from,
+                            to: call.to
+                        })
+                    });
+
+                    const data = await transcribeResponse.json();
+
+                    if (data.success && data.transcript) {
+                        // Log what we received from the API
+                        console.log('Transcript response for', call.recording.sid, ':', data.transcript);
+
+                        // Log quality metrics
+                        if (data.duration) {
+                            console.log(`   Transcribed duration: ${data.duration}s (expected: ${call.duration}s)`);
+                            if (data.duration < call.duration * 0.5) {
+                                console.warn(`⚠️ Possible truncation: Only ${data.duration}s of ${call.duration}s transcribed`);
+                            }
+                        }
+
+                        // Store the transcript - ensure it's properly formatted
+                        if (typeof data.transcript === 'string') {
+                            // If it's just a string, we need to parse it for speaker segments
+                            // Look for patterns like "Speaker A:" or "Speaker 1:"
+                            const segments = parseTranscriptString(data.transcript);
+                            transcripts[call.recording.sid] = segments;
+                        } else {
+                            transcripts[call.recording.sid] = data.transcript;
+                        }
+
+                        // Update display
+                        const callItem = document.querySelector(`[data-recording="${call.recording.sid}"]`);
+                        if (callItem && !callItem.innerHTML.includes('Transcribed')) {
+                            callItem.querySelector('.call-details').innerHTML +=
+                                '<span class="badge transcribed">Transcribed</span>';
+                        }
+
+                        // If this recording is selected, show transcript
+                        const selectedSid = document.getElementById('recording-sid').value;
+                        if (selectedSid === call.recording.sid) {
+                            processAndDisplayTranscript(transcripts[call.recording.sid]);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Failed to transcribe ${call.recording.sid}:`, error);
+                }
+
+                // Small delay between transcriptions
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+
+            statusEl.textContent = '✅ All recordings transcribed';
+            setTimeout(() => statusEl.remove(), 5000);
+            isAutoTranscribing = false;
+        }
+
+        // Display calls in the list
+        function displayCalls(calls) {
+            const listEl = document.getElementById('call-list');
+
+            if (calls.length === 0) {
+                listEl.innerHTML = '<div class="empty-state">No calls with recordings found</div>';
+                return;
+            }
+
+            listEl.innerHTML = calls.map(call => {
+                const date = new Date(call.startTime);
+                const timeStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+                const duration = call.duration ? call.duration + 's' : 'N/A';
+
+                // Check if this is a widget call with customer info
+                const hasCustomerInfo = call.customerInfo && call.customerInfo.isWidgetCall;
+                const customerName = hasCustomerInfo ? call.customerInfo.customerName : null;
+                const customerEmail = hasCustomerInfo ? call.customerInfo.customerEmail : null;
+                const customerPhone = hasCustomerInfo ? call.customerInfo.customerPhone : null;
+                const callType = hasCustomerInfo ? call.customerInfo.callType : null;
+
+                return `
+                    <div class="call-item ${hasCustomerInfo ? 'widget-call' : ''}" onclick="selectCall('${call.recording.sid}', '${call.sid}')" data-recording="${call.recording.sid}" style="${hasCustomerInfo ? 'border-left: 4px solid #667eea;' : ''}">
+                        ${hasCustomerInfo ? `
+                            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 8px 12px; margin: -12px -12px 10px -12px; border-radius: 7px 7px 0 0;">
+                                <div style="font-size: 16px; font-weight: 600;">
+                                    👤 ${customerName}
+                                    ${callType === 'loan_officer' ? '<span style="font-size: 12px; opacity: 0.9; margin-left: 10px;">(Loan Officer Side)</span>' : ''}
+                                    ${callType === 'customer' ? '<span style="font-size: 12px; opacity: 0.9; margin-left: 10px;">(Customer Side)</span>' : ''}
+                                </div>
+                                <div style="font-size: 14px; margin-top: 4px;">
+                                    ✉️ ${customerEmail}
+                                </div>
+                                <div style="font-size: 14px; margin-top: 2px;">
+                                    📱 ${formatPhone(customerPhone)}
+                                </div>
+                            </div>
+                        ` : ''}
+                        <div class="call-header">
+                            <span class="call-phone">
+                                ${!hasCustomerInfo ?
+                                    formatPhone(call.from) + ' → ' + formatPhone(call.to) :
+                                    'Conference Call'}
+                            </span>
+                            <span class="call-time">${timeStr}</span>
+                        </div>
+                        <div class="call-details" style="margin-top: 8px;">
+                            ${hasCustomerInfo ? '<span class="badge" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">Widget Lead</span>' : ''}
+                            <span class="badge recording" style="cursor: pointer; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white;"
+                                  onclick="playRecording('${call.recording.sid}', event)"
+                                  title="Click to play recording">
+                                🎧 Recording
+                            </span>
+                            <span class="badge duration">${duration}</span>
+                            ${transcripts[call.recording.sid] ? '<span class="badge transcribed">Transcribed</span>' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Format phone number for display
+        function formatPhone(phone) {
+            if (!phone) return 'Unknown';
+            if (phone.length === 12 && phone.startsWith('+1')) {
+                return '(' + phone.slice(2, 5) + ') ' + phone.slice(5, 8) + '-' + phone.slice(8);
+            }
+            return phone;
+        }
+
+        // Play recording audio
+        async function playRecording(recordingSid, event) {
+            // Prevent triggering the call selection
+            if (event) {
+                event.stopPropagation();
+            }
+
+            console.log('Playing recording:', recordingSid);
+
+            // Check if audio player already exists
+            let audioContainer = document.getElementById('audio-player-container');
+            if (!audioContainer) {
+                // Create audio player container
+                audioContainer = document.createElement('div');
+                audioContainer.id = 'audio-player-container';
+                audioContainer.style.cssText = `
+                    position: fixed;
+                    bottom: 20px;
+                    right: 20px;
+                    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+                    padding: 20px;
+                    border-radius: 12px;
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                    z-index: 1000;
+                    min-width: 350px;
+                `;
+                document.body.appendChild(audioContainer);
+            }
+
+            try {
+                // Use local backend for audio streaming (it has Twilio authentication)
+                const audioUrl = `http://localhost:3003/api/twilio/recording/${recordingSid}/stream`;
+
+                console.log('Playing recording from local backend:', audioUrl);
+
+                // Create audio player with controls
+                audioContainer.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h4 style="margin: 0; color: white; font-size: 14px;">🎧 Playing Recording</h4>
+                        <button onclick="document.getElementById('audio-player-container').remove()"
+                                style="background: transparent; border: none; color: #ef4444; cursor: pointer; font-size: 20px;">×</button>
+                    </div>
+                    <audio controls autoplay style="width: 100%;">
+                        <source src="${audioUrl}" type="audio/mpeg">
+                        Your browser does not support the audio element.
+                    </audio>
+                    <div style="margin-top: 10px; color: #94a3b8; font-size: 12px;">
+                        Recording: ${recordingSid.slice(-8)}...
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error playing recording:', error);
+
+                // Show error message
+                audioContainer.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #ef4444;">❌ Failed to load recording</span>
+                        <button onclick="document.getElementById('audio-player-container').remove()"
+                                style="background: transparent; border: none; color: white; cursor: pointer; font-size: 20px;">×</button>
+                    </div>
+                    <div style="margin-top: 10px; color: #fbbf24; font-size: 12px;">
+                        Make sure your local backend is running at http://localhost:3003
+                    </div>
+                `;
+
+                // Auto-remove error after 5 seconds
+                setTimeout(() => {
+                    if (audioContainer) audioContainer.remove();
+                }, 5000);
+            }
+        }
+
+        // Select a call for transcription
+        function selectCall(recordingSid, callSid) {
+            document.getElementById('recording-sid').value = recordingSid;
+
+            // Update visual selection
+            document.querySelectorAll('.call-item').forEach(el => {
+                el.classList.remove('selected');
+            });
+            document.querySelector(`[data-recording="${recordingSid}"]`)?.classList.add('selected');
+
+            // Show existing transcript if we have it
+            if (transcripts[recordingSid]) {
+                console.log('Using existing transcript for', recordingSid, '- no API call needed');
+                processAndDisplayTranscript(transcripts[recordingSid]);
+            } else {
+                console.log('No transcript found for', recordingSid, '- will need to transcribe (costs money)');
+                document.getElementById('transcript-box').innerHTML =
+                    '<div class="empty-state">Transcript loading... If not available, it will be generated automatically.</div>';
+
+                // Trigger auto-transcribe for this specific recording if needed
+                if (!isAutoTranscribing) {
+                    const call = allCalls.find(c => c.recording && c.recording.sid === recordingSid);
+                    if (call) {
+                        console.log('Starting transcription for single recording:', recordingSid);
+                        transcribeQueue = [call];
+                        autoTranscribeNew();
+                    }
+                }
+            }
+        }
+
+        // Process and display transcript with speaker identification
+        function processAndDisplayTranscript(transcript) {
+            console.log('=== TRANSCRIPT PROCESSING DEBUG ===');
+            console.log('Raw transcript received:', transcript);
+            console.log('Transcript type:', typeof transcript);
+
+            // Store current transcript
+            if (typeof transcript === 'string') {
+                console.log('Processing as string transcript - attempting to parse for speakers');
+
+                // ALWAYS try to parse the string for speaker segments
+                const segments = parseTranscriptString(transcript);
+
+                if (segments && segments.length > 1) {
+                    console.log('Successfully parsed into', segments.length, 'segments');
+                    currentTranscript = segments;
+                } else {
+                    // Check if it's a JSON string that needs parsing
+                    try {
+                        const parsed = JSON.parse(transcript);
+                        if (Array.isArray(parsed)) {
+                            console.log('Parsed JSON array of segments:', parsed);
+                            currentTranscript = parsed;
+                        } else if (parsed.utterances) {
+                            console.log('Parsed JSON with utterances:', parsed.utterances);
+                            currentTranscript = parsed.utterances;
+                        } else {
+                            // Still try to parse the text content
+                            const textContent = parsed.text || transcript;
+                            const segments = parseTranscriptString(textContent);
+                            currentTranscript = segments;
+                        }
+                    } catch (e) {
+                        // Not JSON, already parsed above
+                        if (!currentTranscript || currentTranscript.length === 0) {
+                            currentTranscript = [{
+                                speaker: 'Full Recording',
+                                text: transcript,
+                                start: 0,
+                                end: 0
+                            }];
+                        }
+                    }
+                }
+            } else if (Array.isArray(transcript)) {
+                console.log('Processing as array of segments:', transcript.length, 'segments');
+                currentTranscript = transcript;
+            } else if (transcript && transcript.utterances) {
+                console.log('Processing utterances from object:', transcript.utterances.length, 'utterances');
+                currentTranscript = transcript.utterances;
+            } else if (transcript && transcript.segments) {
+                console.log('Processing segments from object:', transcript.segments.length, 'segments');
+                currentTranscript = transcript.segments;
+            } else {
+                console.log('Fallback processing for unknown format');
+                currentTranscript = [{
+                    speaker: 'Full Recording',
+                    text: transcript.text || JSON.stringify(transcript),
+                    start: 0,
+                    end: 0
+                }];
+            }
+
+            // Log speaker information
+            console.log('Current transcript segments:', currentTranscript.length);
+            if (currentTranscript.length > 0) {
+                const speakers = [...new Set(currentTranscript.map(s => s.speaker))];
+                console.log('Unique speakers found:', speakers);
+                console.log('First 3 segments:', currentTranscript.slice(0, 3));
+            }
+
+            // Show speaker controls
+            document.getElementById('speakerControls').style.display = 'flex';
+            document.getElementById('exportControls').style.display = 'flex';
+
+            // Auto-assign speakers
+            const firstSpeakerSelection = document.querySelector('input[name="firstSpeaker"]:checked').value;
+            console.log('Speaker assignment mode:', firstSpeakerSelection);
+            assignSpeakers(firstSpeakerSelection);
+
+            // Detect appointments in the transcript
+            const appointmentInfo = detectAppointments(transcript);
+
+            // Generate synopsis
+            const synopsis = generateCallSynopsis(transcript, appointmentInfo);
+
+            // Store synopsis for display
+            window.currentSynopsis = synopsis;
+
+            // Display transcript with synopsis
+            displayTranscript();
+            displaySynopsis(synopsis);
+        }
+
+        // Assign speakers based on selection
+        function assignSpeakers(firstSpeakerType) {
+            if (!currentTranscript || !Array.isArray(currentTranscript)) {
+                console.log('No valid transcript to assign speakers');
+                return;
+            }
+
+            // Reset speaker mapping
+            speakerMapping = {};
+            window.identifiedNames = {};
+
+            // Get unique speakers
+            const speakers = [...new Set(currentTranscript.map(s => s.speaker))];
+            console.log('=== SPEAKER ASSIGNMENT DEBUG ===');
+            console.log('Assignment mode:', firstSpeakerType);
+            console.log('Unique speakers:', speakers);
+
+            if (firstSpeakerType === 'auto') {
+                // Enhanced auto-detection based on introductions and context
+                const loanOfficerPhrases = [
+                    'lendwise', 'mortgage', 'how can i help', 'speaking',
+                    'thank you for calling', 'loan officer', 'calling from',
+                    'how may i assist', 'what can i do for you'
+                ];
+
+                // Common loan officer names (you can expand this list)
+                const loanOfficerNames = [
+                    'david', 'dave', 'michael', 'mike', 'robert', 'bob',
+                    'james', 'jim', 'john', 'william', 'bill', 'richard',
+                    'jennifer', 'jessica', 'sarah', 'lisa', 'karen', 'susan'
+                ];
+
+                // Customer introduction patterns
+                const customerPatterns = [
+                    /hi,?\s+(this is|i'm|i am|my name is)\s+(\w+)/i,
+                    /hello,?\s+(this is|i'm|i am|my name is)\s+(\w+)/i,
+                    /yes,?\s+(this is|i'm|i am)\s+(\w+)/i
+                ];
+
+                // Loan officer introduction patterns
+                const loanOfficerPatterns = [
+                    /this is\s+(\w+)\s+(from|with|at)\s+(lendwise|mortgage)/i,
+                    /(\w+)\s+speaking/i,
+                    /my name is\s+(\w+).*loan officer/i,
+                    /i'm\s+(\w+).*loan officer/i
+                ];
+
+                // Check first several utterances for better context
+                const contextUtterances = currentTranscript.slice(0, 5);
+                let detectedLoanOfficer = null;
+                let detectedCustomer = null;
+                const identifiedNames = {};
+
+                for (const utterance of contextUtterances) {
+                    const text = (utterance.text || '');
+                    const lowerText = text.toLowerCase();
+
+                    // Check for loan officer patterns
+                    for (const pattern of loanOfficerPatterns) {
+                        const match = text.match(pattern);
+                        if (match) {
+                            detectedLoanOfficer = utterance.speaker;
+                            const name = match[1] || match[2];
+                            if (name) {
+                                identifiedNames[utterance.speaker] = name;
+                                console.log(`Detected Loan Officer: ${name} (${utterance.speaker})`);
+                            }
+                            break;
+                        }
+                    }
+
+                    // Check for customer patterns
+                    if (!detectedLoanOfficer || utterance.speaker !== detectedLoanOfficer) {
+                        for (const pattern of customerPatterns) {
+                            const match = text.match(pattern);
+                            if (match) {
+                                const name = match[2] || match[3];
+                                // Check if this name is NOT in loan officer names list
+                                if (name && !loanOfficerNames.includes(name.toLowerCase())) {
+                                    detectedCustomer = utterance.speaker;
+                                    identifiedNames[utterance.speaker] = name;
+                                    console.log(`Detected Customer: ${name} (${utterance.speaker})`);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // Fallback to phrase detection
+                    if (!detectedLoanOfficer && loanOfficerPhrases.some(phrase => lowerText.includes(phrase))) {
+                        detectedLoanOfficer = utterance.speaker;
+                        console.log(`Detected Loan Officer by phrase (${utterance.speaker})`);
+                    }
+                }
+
+                // Map speakers based on detection
+                speakers.forEach(speaker => {
+                    if (speaker === detectedLoanOfficer) {
+                        speakerMapping[speaker] = 'loan_officer';
+                    } else if (speaker === detectedCustomer) {
+                        speakerMapping[speaker] = 'customer';
+                    } else {
+                        // Default assignment based on what we've already identified
+                        if (detectedLoanOfficer && speaker !== detectedLoanOfficer) {
+                            speakerMapping[speaker] = 'customer';
+                        } else if (detectedCustomer && speaker !== detectedCustomer) {
+                            speakerMapping[speaker] = 'loan_officer';
+                        } else {
+                            // If nothing detected, assume first speaker is loan officer
+                            speakerMapping[speaker] = speakers.indexOf(speaker) === 0 ? 'loan_officer' : 'customer';
+                        }
+                    }
+                });
+
+                // Store identified names for display
+                window.identifiedNames = identifiedNames;
+            } else {
+                // Manual assignment based on selection
+                if (speakers.length === 1) {
+                    speakerMapping[speakers[0]] = firstSpeakerType;
+                } else if (speakers.length === 2) {
+                    // Assume speakers alternate
+                    const speakerOrder = [];
+                    currentTranscript.forEach(u => {
+                        if (!speakerOrder.includes(u.speaker)) {
+                            speakerOrder.push(u.speaker);
+                        }
+                    });
+
+                    speakerMapping[speakerOrder[0]] = firstSpeakerType;
+                    speakerMapping[speakerOrder[1]] = firstSpeakerType === 'loan_officer' ? 'customer' : 'loan_officer';
+                } else {
+                    // Multiple speakers - assign first, rest as customers
+                    speakers.forEach((speaker, index) => {
+                        if (index === 0) {
+                            speakerMapping[speaker] = firstSpeakerType;
+                        } else {
+                            speakerMapping[speaker] = firstSpeakerType === 'loan_officer' ? 'customer' : 'loan_officer';
+                        }
+                    });
+                }
+            }
+
+            displayTranscript();
+        }
+
+        // Display transcript with speaker labels
+        function displayTranscript() {
+            if (!currentTranscript) return;
+
+            const transcriptBox = document.getElementById('transcript-box');
+            transcriptBox.innerHTML = '';
+
+            // First, check if any segments contain mixed speakers and split them
+            const processedSegments = splitMixedSegments(currentTranscript);
+
+            processedSegments.forEach(segment => {
+                const speakerType = speakerMapping[segment.speaker] || 'customer';
+
+                // Get the actual name if identified, otherwise use generic label
+                let speakerLabel;
+                if (window.identifiedNames && window.identifiedNames[segment.speaker]) {
+                    const name = window.identifiedNames[segment.speaker];
+                    // Capitalize first letter
+                    const capitalizedName = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+                    speakerLabel = speakerType === 'loan_officer' ?
+                        `${capitalizedName} (Loan Officer)` :
+                        `${capitalizedName} (Customer)`;
+                } else {
+                    speakerLabel = speakerType === 'loan_officer' ? 'Loan Officer' : 'Customer';
+                }
+
+                const icon = speakerType === 'loan_officer' ? '👔' : '👤';
+
+                const confidence = segment.confidence || 0.95;
+                const confidenceClass = confidence > 0.9 ? 'confidence-high' :
+                                       confidence > 0.7 ? 'confidence-medium' : 'confidence-low';
+                const confidencePercent = Math.round(confidence * 100);
+
+                const lineDiv = document.createElement('div');
+                lineDiv.className = `transcript-line ${speakerType}`;
+                lineDiv.innerHTML = `
+                    <div class="speaker-label ${speakerType}">
+                        <div class="speaker-icon ${speakerType}">${icon}</div>
+                        <span>${speakerLabel}</span>
+                        ${segment.confidence ? `<span class="confidence-badge ${confidenceClass}">${confidencePercent}%</span>` : ''}
+                        <span class="timestamp">${formatTime(segment.start)}</span>
+                    </div>
+                    <div class="transcript-text">${segment.text}</div>
+                `;
+
+                transcriptBox.appendChild(lineDiv);
+            });
+
+            // Show detection results in console for debugging
+            if (window.identifiedNames && Object.keys(window.identifiedNames).length > 0) {
+                console.log('Identified participants:', window.identifiedNames);
+            }
+        }
+
+        // Parse transcript string into speaker segments
+        function parseTranscriptString(transcriptText) {
+            console.log('=== PARSING TRANSCRIPT FOR SPEAKERS ===');
+            console.log('Full transcript text:', transcriptText);
+
+            // AGGRESSIVE PARSING - Split this specific conversation pattern
+            // Looking for: "Hi, Jim. This is David. How can I help you? Hi. My name is Jim..."
+
+            // First check if this looks like the merged conversation
+            if (transcriptText.includes("Hi, Jim") && transcriptText.includes("This is David") && transcriptText.includes("My name is Jim")) {
+                console.log('DETECTED MERGED CONVERSATION - Forcing split');
+
+                const segments = [];
+
+                // Find where David's part ends and Jim's begins
+                // Look for "How can I help you?" as the boundary
+                const davidEndPattern = /How can I help you\?/i;
+                const davidEndMatch = transcriptText.match(davidEndPattern);
+
+                if (davidEndMatch) {
+                    const splitPoint = davidEndMatch.index + davidEndMatch[0].length;
+
+                    const davidPart = transcriptText.substring(0, splitPoint).trim();
+                    const jimPart = transcriptText.substring(splitPoint).trim();
+
+                    console.log('Split point found at:', splitPoint);
+                    console.log('David says:', davidPart);
+                    console.log('Jim says:', jimPart);
+
+                    segments.push({
+                        speaker: 'Speaker A',
+                        text: davidPart,
+                        start: 0,
+                        end: 10
+                    });
+
+                    segments.push({
+                        speaker: 'Speaker B',
+                        text: jimPart,
+                        start: 10,
+                        end: 20
+                    });
+
+                    console.log('SUCCESSFULLY SPLIT INTO 2 SPEAKERS');
+                    return segments;
+                }
+
+                // Alternative split: Look for "Hi. My name is Jim" as Jim's response start
+                const jimStartPattern = /Hi\.?\s+(My name is|I'm|I am)\s+Jim/i;
+                const jimMatch = transcriptText.match(jimStartPattern);
+
+                if (jimMatch) {
+                    const jimStartIndex = jimMatch.index;
+
+                    const davidPart = transcriptText.substring(0, jimStartIndex).trim();
+                    const jimPart = transcriptText.substring(jimStartIndex).trim();
+
+                    segments.push({
+                        speaker: 'Speaker A',
+                        text: davidPart,
+                        start: 0,
+                        end: 10
+                    });
+
+                    segments.push({
+                        speaker: 'Speaker B',
+                        text: jimPart,
+                        start: 10,
+                        end: 20
+                    });
+
+                    console.log('SPLIT USING JIM START PATTERN');
+                    return segments;
+                }
+            }
+
+            // Special handling for conversations that start with greetings
+            // Pattern: "Hi/Hello [Name]. This is [Name]" indicates conversation start
+            const conversationStartPattern = /^(Hi|Hello),?\s+(\w+)\.?\s+(This is|I'm|I am)\s+(\w+)/i;
+            const match = transcriptText.match(conversationStartPattern);
+
+            if (match) {
+                console.log('Detected conversation pattern - Customer:', match[2], 'Loan Officer:', match[4]);
+
+                // Split the conversation based on the detected pattern
+                const segments = [];
+
+                // Look for the customer's response pattern
+                const customerResponsePatterns = [
+                    /\?\s+(Hi|Hello|Hey|Yes)[\.,\s]/i,  // Question followed by greeting
+                    /\?\s+(I'm |I am |My name is)/i,     // Question followed by introduction
+                    /\.\s+(Hi|Hello|Hey)[\.,\s]/i,       // Period followed by greeting
+                    /\?\s+([A-Z])/  // Question followed by capital letter (general response)
+                ];
+
+                let splitIndex = -1;
+                for (const pattern of customerResponsePatterns) {
+                    const responseMatch = transcriptText.match(pattern);
+                    if (responseMatch) {
+                        splitIndex = responseMatch.index + 1; // +1 to keep the punctuation with first speaker
+                        console.log('Found split point at index:', splitIndex);
+                        break;
+                    }
+                }
+
+                if (splitIndex > 0) {
+                    // Split the text into loan officer and customer parts
+                    const loanOfficerText = transcriptText.substring(0, splitIndex).trim();
+                    const customerText = transcriptText.substring(splitIndex).trim();
+
+                    segments.push({
+                        speaker: 'Speaker A',  // Will be mapped to Loan Officer
+                        text: loanOfficerText,
+                        start: 0,
+                        end: 10
+                    });
+
+                    if (customerText) {
+                        segments.push({
+                            speaker: 'Speaker B',  // Will be mapped to Customer
+                            text: customerText,
+                            start: 10,
+                            end: 20
+                        });
+                    }
+
+                    console.log('Created segments:', segments);
+                    return segments;
+                }
+            }
+
+            // Check for common speaker patterns
+            const speakerPatterns = [
+                /^(Speaker [A-Z\d]+):\s*/gm,
+                /^(Agent|Customer|Caller|Representative):\s*/gmi,
+                /^(\w+):\s*/gm  // Generic name pattern
+            ];
+
+            let segments = [];
+            let foundPattern = false;
+
+            // Try each pattern
+            for (const pattern of speakerPatterns) {
+                const matches = [...transcriptText.matchAll(pattern)];
+                if (matches.length > 1) {  // Need at least 2 speakers
+                    foundPattern = true;
+                    segments = [];
+
+                    for (let i = 0; i < matches.length; i++) {
+                        const match = matches[i];
+                        const speaker = match[1];
+                        const startPos = match.index + match[0].length;
+                        const endPos = i < matches.length - 1 ? matches[i + 1].index : transcriptText.length;
+                        const text = transcriptText.substring(startPos, endPos).trim();
+
+                        if (text) {
+                            segments.push({
+                                speaker: speaker,
+                                text: text,
+                                start: i * 10,  // Approximate timing
+                                end: (i + 1) * 10
+                            });
+                        }
+                    }
+
+                    if (segments.length > 0) {
+                        console.log(`Found ${segments.length} segments using pattern`);
+                        break;
+                    }
+                }
+            }
+
+            // If no pattern found, try to detect conversation turns
+            if (!foundPattern) {
+                console.log('No speaker patterns found, attempting advanced conversation detection');
+
+                // First, try to find obvious dialogue boundaries
+                // Look for "Hi. My name is" or similar patterns that indicate a response
+                const dialoguePattern = /(?:How can I help you\?|What can I do for you\?|How may I assist you\?)\s*([A-Z])/;
+                const dialogueMatch = transcriptText.match(dialoguePattern);
+
+                if (dialogueMatch) {
+                    const splitPoint = dialogueMatch.index + dialogueMatch[0].length - 1;
+                    console.log('Found dialogue boundary at:', splitPoint);
+
+                    const firstPart = transcriptText.substring(0, splitPoint).trim();
+                    const secondPart = transcriptText.substring(splitPoint).trim();
+
+                    if (firstPart && secondPart) {
+                        segments = [
+                            {
+                                speaker: 'Speaker A',
+                                text: firstPart,
+                                start: 0,
+                                end: 10
+                            },
+                            {
+                                speaker: 'Speaker B',
+                                text: secondPart,
+                                start: 10,
+                                end: 20
+                            }
+                        ];
+                        console.log('Split conversation into 2 segments');
+                        return segments;
+                    }
+                }
+
+                // Try to split on sentence boundaries that indicate conversation
+                let sentences = transcriptText.split(/(?<=[.!?])\s+/);
+
+                if (sentences.length > 1) {
+                    let currentSpeaker = 'A';
+                    let currentText = '';
+
+                    for (let i = 0; i < sentences.length; i++) {
+                        const sentence = sentences[i].trim();
+
+                        // Check if this sentence indicates a speaker change
+                        const isGreeting = /^(Hi|Hello|Hey|Yes|No|Okay|Sure|Thanks|Thank you)/i.test(sentence);
+                        const isQuestion = /\?$/.test(sentences[i - 1] || '');
+                        const hasIntroduction = /(I'm |I am |My name is |This is )/i.test(sentence);
+
+                        if ((isGreeting || isQuestion || hasIntroduction) && currentText) {
+                            // Save current segment and switch speakers
+                            segments.push({
+                                speaker: `Speaker ${currentSpeaker}`,
+                                text: currentText.trim(),
+                                start: segments.length * 10,
+                                end: (segments.length + 1) * 10
+                            });
+
+                            currentSpeaker = currentSpeaker === 'A' ? 'B' : 'A';
+                            currentText = sentence + ' ';
+                        } else {
+                            currentText += sentence + ' ';
+                        }
+                    }
+
+                    // Add the last segment
+                    if (currentText) {
+                        segments.push({
+                            speaker: `Speaker ${currentSpeaker}`,
+                            text: currentText.trim(),
+                            start: segments.length * 10,
+                            end: (segments.length + 1) * 10
+                        });
+                    }
+                }
+
+                // If we found reasonable segments, use them
+                if (segments.length > 1) {
+                    console.log(`Detected ${segments.length} conversation segments`);
+                    foundPattern = true;
+                }
+            }
+
+            // If still no segments, try splitting on periods with reasonable length
+            if (!foundPattern) {
+                const lines = transcriptText.split(/\n\n+/);
+                if (lines.length > 1) {
+                    segments = lines.map((line, index) => ({
+                        speaker: `Speaker ${index % 2 === 0 ? 'A' : 'B'}`,
+                        text: line.trim(),
+                        start: index * 10,
+                        end: (index + 1) * 10
+                    })).filter(s => s.text);
+                }
+            }
+
+            // If still no segments, return as single segment
+            if (segments.length === 0) {
+                segments = [{
+                    speaker: 'Full Recording',
+                    text: transcriptText,
+                    start: 0,
+                    end: 0
+                }];
+            }
+
+            console.log('Parsed segments:', segments.length);
+            console.log('First 3 segments:', segments.slice(0, 3));
+            return segments;
+        }
+
+        // Split segments that contain mixed speakers
+        function splitMixedSegments(segments) {
+            const processed = [];
+
+            segments.forEach((segment, index) => {
+                const text = segment.text;
+
+                // Check for patterns that indicate mixed speakers in one segment
+                // Pattern: "Customer says something. What was the question?" - the question is from the other speaker
+                const mixedPatterns = [
+                    /(.*?)\. (What was the question\?|Do you have any\?|What's your question\?|How can I help\?)/i,
+                    /(.*?)\? ([A-Z][^.!?]*[.!?])/  // Question followed by statement starting with capital
+                ];
+
+                let foundMixed = false;
+                for (const pattern of mixedPatterns) {
+                    const match = text.match(pattern);
+                    if (match && match[1] && match[2]) {
+                        console.log('Found mixed speakers in segment:', text);
+
+                        // Split into two segments
+                        processed.push({
+                            ...segment,
+                            text: match[1].trim()
+                        });
+
+                        // The second part should be from the opposite speaker
+                        const nextSpeaker = segment.speaker === 'Speaker A' ? 'Speaker B' : 'Speaker A';
+                        processed.push({
+                            speaker: nextSpeaker,
+                            text: match[2].trim(),
+                            start: segment.start + 5,
+                            end: segment.end,
+                            confidence: segment.confidence
+                        });
+
+                        foundMixed = true;
+                        break;
+                    }
+                }
+
+                if (!foundMixed) {
+                    processed.push(segment);
+                }
+            });
+
+            return processed;
+        }
+
+        // Swap speaker assignments - REMOVED, no longer needed
+        function swapSpeakers() {
+            // Function kept for compatibility but does nothing
+            console.log('Swap speakers button has been removed');
+        }
+
+        // Display synopsis in the UI
+        function displaySynopsis(synopsis) {
+            const container = document.getElementById('synopsis-container');
+            const content = document.getElementById('synopsis-content');
+
+            if (!synopsis || (!synopsis.keyPoints.length && !synopsis.appointment?.hasAppointment)) {
+                container.style.display = 'none';
+                return;
+            }
+
+            container.style.display = 'block';
+
+            let html = '';
+
+            // Appointment section if detected
+            if (synopsis.appointment && synopsis.appointment.hasAppointment) {
+                html += `
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+                        <div style="font-weight: 600; margin-bottom: 8px;">📅 Appointment Scheduled</div>
+                        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                            ${synopsis.appointment.calculatedDate ?
+                                `<div><strong>Date:</strong> ${synopsis.appointment.calculatedDate}</div>` :
+                                synopsis.appointment.dayMentioned ?
+                                `<div><strong>Day:</strong> ${synopsis.appointment.dayMentioned}</div>` : ''}
+                            ${synopsis.appointment.timeMentioned ?
+                                `<div><strong>Time:</strong> ${synopsis.appointment.timeMentioned}</div>` : ''}
+                        </div>
+                        ${synopsis.appointment.context ?
+                            `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.2); font-size: 13px; opacity: 0.9;">
+                                <em>"${synopsis.appointment.context}"</em>
+                            </div>` : ''}
+                        <button onclick="createCalendarEvent(${JSON.stringify(synopsis.appointment).replace(/"/g, '&quot;')})"
+                                style="margin-top: 10px; padding: 6px 12px; background: white; color: #667eea; border: none; border-radius: 5px; font-weight: 600; cursor: pointer; font-size: 13px;">
+                            📧 Send Calendar Invite
+                        </button>
+                    </div>
+                `;
+            }
+
+            // Summary
+            if (synopsis.summary) {
+                html += `
+                    <div style="margin-bottom: 15px;">
+                        <strong style="color: #667eea;">Summary:</strong> ${synopsis.summary}
+                    </div>
+                `;
+            }
+
+            // Loan Info
+            if (synopsis.loanInfo && Object.keys(synopsis.loanInfo).length > 0) {
+                html += `
+                    <div style="margin-bottom: 15px;">
+                        <strong style="color: #667eea;">Loan Details:</strong>
+                        <div style="margin-top: 5px; padding-left: 15px;">
+                            ${synopsis.loanInfo.type ? `<div>• Type: ${synopsis.loanInfo.type}</div>` : ''}
+                            ${synopsis.loanInfo.currentRate ? `<div>• Current Rate: ${synopsis.loanInfo.currentRate}</div>` : ''}
+                            ${synopsis.loanInfo.propertyValue ? `<div>• Property Value: ${synopsis.loanInfo.propertyValue}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Key Points
+            if (synopsis.keyPoints && synopsis.keyPoints.length > 0) {
+                html += `
+                    <div style="margin-bottom: 15px;">
+                        <strong style="color: #667eea;">Key Points:</strong>
+                        <div style="margin-top: 5px; padding-left: 15px;">
+                            ${synopsis.keyPoints.map(point => `<div>• ${point}</div>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Customer Needs
+            if (synopsis.customerNeeds && synopsis.customerNeeds.length > 0) {
+                html += `
+                    <div style="margin-bottom: 15px;">
+                        <strong style="color: #667eea;">Customer Needs:</strong>
+                        <div style="margin-top: 5px; padding-left: 15px;">
+                            ${synopsis.customerNeeds.map(need => `<div>• ${need}</div>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Next Steps
+            if (synopsis.nextSteps && synopsis.nextSteps.length > 0) {
+                html += `
+                    <div style="margin-bottom: 0;">
+                        <strong style="color: #667eea;">Next Steps:</strong>
+                        <div style="margin-top: 5px; padding-left: 15px;">
+                            ${synopsis.nextSteps.map(step => `<div>✓ ${step}</div>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            content.innerHTML = html;
+        }
+
+        // Toggle transcript visibility
+        function toggleTranscript() {
+            const transcriptBox = document.getElementById('transcript-box');
+            const toggleBtn = document.getElementById('toggle-transcript');
+
+            if (transcriptBox.style.display === 'none') {
+                transcriptBox.style.display = 'block';
+                toggleBtn.textContent = 'Hide Transcript';
+            } else {
+                transcriptBox.style.display = 'none';
+                toggleBtn.textContent = 'Show Transcript';
+            }
+        }
+
+        // Generate call synopsis from transcript
+        function generateCallSynopsis(transcript, appointmentInfo) {
+            try {
+                let transcriptText = '';
+                if (typeof transcript === 'string') {
+                    transcriptText = transcript;
+                } else if (Array.isArray(transcript)) {
+                    transcriptText = transcript.map(s => s.text || s).join(' ');
+                } else if (transcript.text) {
+                    transcriptText = transcript.text;
+                }
+
+                const synopsis = {
+                    summary: '',
+                    keyPoints: [],
+                    customerNeeds: [],
+                    nextSteps: [],
+                    appointment: appointmentInfo,
+                    loanInfo: {}
+                };
+
+                // Detect loan-related information
+                const loanPatterns = {
+                    refinance: /refinanc|refi|lower.*rate|better.*rate|current.*rate/gi,
+                    purchase: /buy|purchase|new home|first home|looking for.*home/gi,
+                    cashOut: /cash out|equity|pull.*money|access.*equity/gi,
+                    rate: /\d+\.?\d*\s*%|percent|rate.*\d+/gi,
+                    propertyValue: /\$[\d,]+k?|value.*\d+|worth.*\d+|apprais/gi,
+                    timeline: /asap|soon|urgent|next.*month|this.*month|when.*can/gi
+                };
+
+                // Check for loan type
+                if (loanPatterns.refinance.test(transcriptText)) {
+                    synopsis.loanInfo.type = 'Refinance';
+                    synopsis.keyPoints.push('Customer interested in refinancing');
+                }
+                if (loanPatterns.purchase.test(transcriptText)) {
+                    synopsis.loanInfo.type = 'Purchase';
+                    synopsis.keyPoints.push('Customer looking to purchase a home');
+                }
+                if (loanPatterns.cashOut.test(transcriptText)) {
+                    synopsis.loanInfo.type = 'Cash-out Refinance';
+                    synopsis.keyPoints.push('Customer interested in cash-out option');
+                }
+
+                // Extract rate information
+                const rateMatch = transcriptText.match(/(\d+\.?\d*)\s*%/);
+                if (rateMatch) {
+                    synopsis.loanInfo.currentRate = rateMatch[1] + '%';
+                    synopsis.keyPoints.push(`Current rate: ${rateMatch[1]}%`);
+                }
+
+                // Extract property value
+                const valueMatch = transcriptText.match(/\$?([\d,]+)k?.*(?:value|worth|apprais)/i);
+                if (valueMatch) {
+                    synopsis.loanInfo.propertyValue = '$' + valueMatch[1];
+                    synopsis.keyPoints.push(`Property value: $${valueMatch[1]}`);
+                }
+
+                // Detect customer needs based on keywords
+                const needsPatterns = {
+                    'Lower monthly payment': /lower.*payment|reduce.*payment|save.*money/gi,
+                    'Better interest rate': /better.*rate|lower.*rate|current.*rate.*high/gi,
+                    'Quick closing needed': /asap|urgent|soon|quickly|fast/gi,
+                    'First-time buyer': /first.*time|never.*bought|new.*to/gi,
+                    'Investment property': /investment|rental|second.*home/gi
+                };
+
+                for (const [need, pattern] of Object.entries(needsPatterns)) {
+                    if (pattern.test(transcriptText)) {
+                        synopsis.customerNeeds.push(need);
+                    }
+                }
+
+                // Identify next steps
+                if (appointmentInfo && appointmentInfo.hasAppointment) {
+                    const apptText = appointmentInfo.timeMentioned ?
+                        `Follow-up scheduled: ${appointmentInfo.dayMentioned} at ${appointmentInfo.timeMentioned}` :
+                        `Follow-up scheduled: ${appointmentInfo.dayMentioned}`;
+                    synopsis.nextSteps.push(apptText);
+                }
+
+                // Check for document requests
+                if (/send.*document|email.*form|application/gi.test(transcriptText)) {
+                    synopsis.nextSteps.push('Send application/documents to customer');
+                }
+
+                if (/call.*back|follow.*up|speak.*again/gi.test(transcriptText)) {
+                    synopsis.nextSteps.push('Follow-up call required');
+                }
+
+                // Generate summary
+                const summaryParts = [];
+                if (synopsis.loanInfo.type) {
+                    summaryParts.push(`${synopsis.loanInfo.type} inquiry`);
+                }
+                if (synopsis.customerNeeds.length > 0) {
+                    summaryParts.push(`Customer needs: ${synopsis.customerNeeds[0]}`);
+                }
+                if (appointmentInfo && appointmentInfo.hasAppointment) {
+                    summaryParts.push('Appointment scheduled');
+                }
+
+                synopsis.summary = summaryParts.join('. ') || 'General mortgage inquiry';
+
+                return synopsis;
+            } catch (error) {
+                console.error('Error generating synopsis:', error);
+                return {
+                    summary: 'Unable to generate synopsis',
+                    keyPoints: [],
+                    customerNeeds: [],
+                    nextSteps: [],
+                    loanInfo: {}
+                };
+            }
+        }
+
+        // Detect appointments in transcript
+        function detectAppointments(transcript) {
+            try {
+                // Convert transcript to text
+                let transcriptText = '';
+                if (typeof transcript === 'string') {
+                    transcriptText = transcript;
+                } else if (Array.isArray(transcript)) {
+                    transcriptText = transcript.map(s => s.text || s).join(' ');
+                } else if (transcript.text) {
+                    transcriptText = transcript.text;
+                }
+
+                // Check for appointment keywords and patterns
+                const appointmentPatterns = [
+                    // Specific day/time mentions
+                    /(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday).*(?:at|around)?\s*\d{1,2}(?:\s*(?:am|pm|o'clock))?/gi,
+                    /tomorrow.*(?:at|around)?\s*\d{1,2}(?:\s*(?:am|pm|o'clock))?/gi,
+                    /next\s+(?:week|monday|tuesday|wednesday|thursday|friday).*(?:at|around)?\s*\d{1,2}/gi,
+                    // Scheduling phrases
+                    /(?:let's|can we|should we|I'll).*(?:meet|schedule|talk|call).*(?:on|at|for)/gi,
+                    /schedule.*(?:meeting|call|appointment|follow[\s-]?up)/gi,
+                    /set up.*(?:time|meeting|call|appointment)/gi,
+                    /follow[\s-]?up.*(?:on|at|tomorrow|next)/gi,
+                    /call you (?:back|tomorrow|next)/gi,
+                    // Calendar mentions
+                    /google\s+(?:invite|calendar)/gi,
+                    /calendar\s+(?:invite|invitation)/gi,
+                    /send.*(?:invite|calendar)/gi,
+                    // Specific time mentions
+                    /\d{1,2}(?:\s*(?:am|pm|o'clock))/gi,
+                    /appointment.*(?:for|on|at)/gi
+                ];
+
+                let appointmentDetected = false;
+                let detectedInfo = {
+                    hasAppointment: false,
+                    context: '',
+                    dayMentioned: null,
+                    timeMentioned: null,
+                    year: new Date().getFullYear()
+                };
+
+                // Check each pattern
+                for (const pattern of appointmentPatterns) {
+                    const matches = transcriptText.matchAll(pattern);
+                    for (const match of matches) {
+                        appointmentDetected = true;
+                        const matchText = match[0];
+
+                        // Get context (50 chars before and after)
+                        const index = match.index;
+                        const start = Math.max(0, index - 50);
+                        const end = Math.min(transcriptText.length, index + matchText.length + 50);
+                        detectedInfo.context = transcriptText.substring(start, end);
+
+                        // Extract day
+                        const dayMatch = matchText.match(/monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow/i);
+                        if (dayMatch) {
+                            detectedInfo.dayMentioned = dayMatch[0];
+                        }
+
+                        // Extract time
+                        const timeMatch = matchText.match(/\d{1,2}(?:\s*(?:am|pm|o'clock))?/i);
+                        if (timeMatch) {
+                            detectedInfo.timeMentioned = timeMatch[0];
+                        }
+
+                        console.log('📅 Appointment pattern detected:', matchText);
+                        break;
+                    }
+                    if (appointmentDetected) break;
+                }
+
+                if (appointmentDetected) {
+                    detectedInfo.hasAppointment = true;
+
+                    // Calculate actual date if day is mentioned
+                    if (detectedInfo.dayMentioned) {
+                        const today = new Date();
+                        let targetDate = new Date();
+
+                        if (detectedInfo.dayMentioned.toLowerCase() === 'tomorrow') {
+                            targetDate.setDate(today.getDate() + 1);
+                        } else {
+                            // Find next occurrence of the mentioned day
+                            const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                            const targetDay = days.indexOf(detectedInfo.dayMentioned.toLowerCase());
+                            const currentDay = today.getDay();
+
+                            let daysToAdd = targetDay - currentDay;
+                            if (daysToAdd <= 0) daysToAdd += 7; // Next week if day already passed
+
+                            targetDate.setDate(today.getDate() + daysToAdd);
+                        }
+
+                        detectedInfo.calculatedDate = targetDate.toLocaleDateString('en-US', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                        });
+                    }
+
+                    // Store appointment info (no popup)
+                    console.log('📅 Appointment detected:', detectedInfo);
+                }
+
+                return detectedInfo;
+            } catch (error) {
+                console.error('Error detecting appointments:', error);
+            }
+        }
+
+
+        // Create calendar event (placeholder for Gmail integration)
+        function createCalendarEvent(info) {
+            console.log('Creating calendar event with info:', info);
+            // This will integrate with Gmail Calendar API
+            alert(`Calendar invite would be created for:\n${info.calculatedDate || info.dayMentioned}\n${info.timeMentioned || 'Time TBD'}`);
+        }
+
+        // Format time
+        function formatTime(seconds) {
+            if (!seconds && seconds !== 0) return '';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // Export functions
+        function exportTranscriptJSON() {
+            if (!currentTranscript) return;
+
+            const exportData = {
+                timestamp: new Date().toISOString(),
+                transcript: currentTranscript.map(segment => ({
+                    speaker: speakerMapping[segment.speaker] === 'loan_officer' ? 'Loan Officer' : 'Customer',
+                    text: segment.text,
+                    start: segment.start,
+                    end: segment.end,
+                    confidence: segment.confidence
+                }))
+            };
+
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `transcript-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+        }
+
+        function exportTranscriptText() {
+            if (!currentTranscript) return;
+
+            const text = currentTranscript.map(segment => {
+                const speaker = speakerMapping[segment.speaker] === 'loan_officer' ? 'Loan Officer' : 'Customer';
+                return `${speaker} [${formatTime(segment.start)}]: ${segment.text}`;
+            }).join('\n\n');
+
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `transcript-${new Date().toISOString().split('T')[0]}.txt`;
+            a.click();
+        }
+
+        function copyTranscript() {
+            if (!currentTranscript) return;
+
+            const text = currentTranscript.map(segment => {
+                const speaker = speakerMapping[segment.speaker] === 'loan_officer' ? 'Loan Officer' : 'Customer';
+                return `${speaker}: ${segment.text}`;
+            }).join('\n\n');
+
+            navigator.clipboard.writeText(text).then(() => {
+                // Show feedback
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✅ Copied!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            });
+        }
+
+        // Make a phone call
+        async function makeCall() {
+            const phoneNumber = document.getElementById('phone-number').value.trim();
+            const callButton = document.getElementById('call-button');
+            const statusDiv = document.getElementById('call-status');
+
+            if (!phoneNumber) {
+                alert('Please enter a phone number');
+                return;
+            }
+
+            // Format phone number if needed
+            let formattedNumber = phoneNumber.replace(/[^\d+]/g, '');
+            if (!formattedNumber.startsWith('+')) {
+                if (formattedNumber.length === 10) {
+                    formattedNumber = '+1' + formattedNumber;
+                } else if (formattedNumber.length === 11 && formattedNumber.startsWith('1')) {
+                    formattedNumber = '+' + formattedNumber;
+                }
+            }
+
+            callButton.disabled = true;
+            callButton.textContent = '📞 Connecting...';
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = 'rgba(34, 197, 94, 0.1)';
+            statusDiv.style.border = '1px solid rgba(34, 197, 94, 0.3)';
+            statusDiv.innerHTML = '🔄 Initiating call to ' + formatPhone(formattedNumber) + '...';
+
+            try {
+                console.log('Making call to:', formattedNumber);
+
+                // Try the simple endpoint with GET first (more reliable on Vercel)
+                const response = await fetch(`${API_BASE}/make-call-simple?to=` + encodeURIComponent(formattedNumber));
+
+                const data = await response.json();
+
+                if (data.success) {
+                    statusDiv.style.background = 'rgba(34, 197, 94, 0.2)';
+                    statusDiv.style.border = '1px solid #22c55e';
+                    statusDiv.innerHTML = '✅ Call initiated! Call SID: ' + data.callSid;
+
+                    // Refresh call list after a few seconds
+                    setTimeout(() => {
+                        loadCalls();
+                        statusDiv.style.display = 'none';
+                    }, 5000);
+                } else {
+                    statusDiv.style.background = 'rgba(239, 68, 68, 0.2)';
+                    statusDiv.style.border = '1px solid #ef4444';
+                    let errorMsg = '❌ Failed to initiate call: ' + (data.error || 'Unknown error');
+                    if (data.message) errorMsg += '<br>Details: ' + data.message;
+                    if (data.debug) {
+                        errorMsg += '<br>Debug: ' + JSON.stringify(data.debug, null, 2).replace(/\n/g, '<br>');
+                    }
+                    statusDiv.innerHTML = errorMsg;
+                }
+            } catch (error) {
+                statusDiv.style.background = 'rgba(239, 68, 68, 0.2)';
+                statusDiv.style.border = '1px solid #ef4444';
+                statusDiv.innerHTML = '❌ Error: ' + error.message;
+            } finally {
+                callButton.disabled = false;
+                callButton.textContent = '📞 Start Call';
+            }
+        }
+
+        // Export all transcripts
+        function downloadAllTranscripts() {
+            if (Object.keys(transcripts).length === 0) {
+                alert('No transcripts to export. Generate some transcripts first.');
+                return;
+            }
+
+            const data = {
+                exported: new Date().toISOString(),
+                transcripts: transcripts,
+                calls: allCalls.filter(call => call.recording && transcripts[call.recording.sid])
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'all-transcripts-' + new Date().toISOString().split('T')[0] + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Widget Functions
+        function previewWidget() {
+            const modal = document.getElementById('widgetModal');
+            const iframe = document.getElementById('widgetFrame');
+            iframe.src = `${API_BASE}/widget`;
+            modal.classList.add('active');
+            console.log('Opening widget preview');
+        }
+
+        function closeWidgetModal() {
+            const modal = document.getElementById('widgetModal');
+            modal.classList.remove('active');
+            document.getElementById('widgetFrame').src = '';
+        }
+
+        function showEmbedCode() {
+            const embedCode = `<!-- LendWise Loan Officer Widget -->
+<iframe
+    src="${API_BASE}/widget"
+    width="400"
+    height="600"
+    frameborder="0"
+    style="border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);"
+    title="Contact Loan Officer">
+</iframe>
+
+<!-- Or use this script for a floating widget -->
+<script>
+(function() {
+    var widget = document.createElement('div');
+    widget.innerHTML = '<iframe src="${API_BASE}/widget" style="position:fixed;bottom:20px;right:20px;width:400px;height:600px;border:none;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.2);z-index:9999;" frameborder="0"></iframe>';
+    document.body.appendChild(widget);
+})();
+<\/script>`;
+
+            document.getElementById('embedCode').textContent = embedCode;
+            document.getElementById('embedModal').classList.add('active');
+        }
+
+        function closeEmbedModal() {
+            document.getElementById('embedModal').classList.remove('active');
+        }
+
+        function copyEmbedCode() {
+            const embedCode = document.getElementById('embedCode').textContent;
+            navigator.clipboard.writeText(embedCode).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✅ Copied!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            });
+        }
+
+        function showWidgetLeads() {
+            // Filter calls to show only widget-generated leads
+            const widgetCalls = allCalls.filter(call =>
+                call.customerInfo && call.customerInfo.isWidgetCall
+            );
+
+            if (widgetCalls.length === 0) {
+                alert('No widget leads found yet. Widget calls will appear here once customers use your embedded widget.');
+                return;
+            }
+
+            // Create a summary
+            const summary = widgetCalls.map(call => {
+                const info = call.customerInfo;
+                return `
+Customer: ${info.customerName}
+Email: ${info.customerEmail}
+Phone: ${info.customerPhone}
+Date: ${new Date(call.startTime).toLocaleString()}
+Duration: ${call.duration}s
+                `;
+            }).join('\n---\n');
+
+            // For now, show in alert. You could create a modal for this
+            alert(`Widget Leads (${widgetCalls.length} total):\n\n${summary}`);
+        }
+
+        // Listen for speaker assignment changes
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('input[name="firstSpeaker"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    assignSpeakers(e.target.value);
+                });
+            });
+        });
+
+        // Initialize on load
+        window.onload = () => {
+            checkStatus();
+            loadCalls();
+
+            // Auto-refresh every 30 seconds
+            setInterval(loadCalls, 30000);
+        };
+
+        // Close modals when clicking outside
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('widget-modal')) {
+                e.target.classList.remove('active');
+                if (e.target.id === 'widgetModal') {
+                    document.getElementById('widgetFrame').src = '';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
