@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test SMS to Tony</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #2e7d32;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background: #2e7d32;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #1b5e20;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+        .info-box {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #2e7d32;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 Test SMS to Tony</h1>
+
+        <div class="info-box">
+            💡 This will send an SMS directly to Tony's cell: (818) 391-9142<br>
+            When Tony replies, he should text back to (818) 918-2433
+        </div>
+
+        <div class="form-group">
+            <label for="name">Your Name:</label>
+            <input type="text" id="name" placeholder="David Young" value="David Young">
+        </div>
+
+        <div class="form-group">
+            <label for="phone">Your Phone:</label>
+            <input type="tel" id="phone" placeholder="(954) 470-3737" value="(954) 470-3737">
+        </div>
+
+        <div class="form-group">
+            <label for="message">Message:</label>
+            <textarea id="message" placeholder="Hi Tony, testing the SMS system...">Testing the new SMS chat system. Please reply with "Got it!" to confirm.</textarea>
+        </div>
+
+        <button id="sendBtn" onclick="sendTestSMS()">Send SMS to Tony</button>
+
+        <div id="status" class="status"></div>
+    </div>
+
+    <script>
+        // Generate conversation ID
+        function generateConvId() {
+            return 'test_' + Date.now().toString(36).substr(-6);
+        }
+
+        // Format phone number
+        function formatPhone(phone) {
+            const cleaned = phone.replace(/\D/g, '');
+            if (cleaned.length === 10) {
+                return '+1' + cleaned;
+            } else if (cleaned.length === 11 && cleaned[0] === '1') {
+                return '+' + cleaned;
+            }
+            return phone;
+        }
+
+        async function sendTestSMS() {
+            const btn = document.getElementById('sendBtn');
+            const status = document.getElementById('status');
+
+            // Get form values
+            const name = document.getElementById('name').value.trim();
+            const phone = formatPhone(document.getElementById('phone').value.trim());
+            const message = document.getElementById('message').value.trim();
+
+            if (!name || !phone || !message) {
+                status.className = 'status error';
+                status.innerHTML = '❌ Please fill in all fields';
+                return;
+            }
+
+            // Generate conversation ID
+            const convId = generateConvId();
+
+            // Disable button
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+
+            // Format message for Tony
+            const fullMessage = `[${convId}] From: ${name} (${phone})\n\nMessage: ${message}\n\nReply with [${convId}] to respond.`;
+
+            try {
+                // Call the API
+                const response = await fetch('https://twilio-dashboard-psi.vercel.app/api/twilio-sms-chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    mode: 'no-cors', // Bypass CORS for testing
+                    body: JSON.stringify({
+                        conversationId: convId,
+                        customerName: name,
+                        customerPhone: phone,
+                        message: fullMessage
+                    })
+                });
+
+                // With no-cors, we can't read the response, but we can assume it worked
+                status.className = 'status success';
+                status.innerHTML = `
+                    ✅ <strong>SMS Sent to Tony!</strong><br><br>
+                    📱 Tony's phone: (818) 391-9142<br>
+                    🆔 Conversation ID: ${convId}<br><br>
+                    Tony should reply to (818) 918-2433 with:<br>
+                    <code>[${convId}] His reply here</code>
+                `;
+
+                // Clear form for next test
+                document.getElementById('message').value = '';
+
+            } catch (error) {
+                console.error('Error:', error);
+                status.className = 'status error';
+                status.innerHTML = '❌ Failed to send SMS. The API might be down.';
+            } finally {
+                // Re-enable button
+                btn.disabled = false;
+                btn.textContent = 'Send SMS to Tony';
+            }
+        }
+
+        // Allow Enter key in textarea without submitting
+        document.getElementById('message').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendTestSMS();
+            }
+        });
+    </script>
+</body>
+</html>

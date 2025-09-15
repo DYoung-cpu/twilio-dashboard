@@ -1,10 +1,11 @@
 const { supabase } = require('../lib/supabase');
 
-// CORS headers
+// CORS headers - Allow all origins including local files
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Accept',
+  'Access-Control-Allow-Credentials': 'false'
 };
 
 module.exports = async (req, res) => {
