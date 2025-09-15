@@ -97,9 +97,34 @@ module.exports = async function handler(req, res) {
         email: 'federico@example.com',
         source: 'widget'
       },
+      '+18054048056': {
+        name: 'Test Contact 1',
+        email: 'contact1@example.com',
+        source: 'direct'
+      },
+      '8054048056': {
+        name: 'Test Contact 1',
+        email: 'contact1@example.com',
+        source: 'direct'
+      },
+      '+14242726952': {
+        name: 'Test Contact 2',
+        email: 'contact2@example.com',
+        source: 'direct'
+      },
+      '4242726952': {
+        name: 'Test Contact 2',
+        email: 'contact2@example.com',
+        source: 'direct'
+      },
       '+19548286704': {
-        name: 'Test Customer',
-        email: 'test@example.com',
+        name: 'David Young',
+        email: 'david@lendwise.com',
+        source: 'direct'
+      },
+      '+13109547772': {
+        name: 'David Cell',
+        email: 'david@lendwise.com',
         source: 'direct'
       }
     };
