@@ -96,15 +96,23 @@ module.exports = async function handler(req, res) {
         const cleanLOPhone = loanOfficerPhone.replace(/\D/g, '');
 
         // Find matching loan officer
+        console.log(`Checking loan officer for ${call.direction} call:`, loanOfficerPhone);
         for (const [phone, info] of Object.entries(loanOfficerNumbers)) {
           const cleanPhone = phone.replace(/\D/g, '');
-          if (cleanLOPhone.endsWith(cleanPhone.slice(-10)) || cleanPhone.endsWith(cleanLOPhone.slice(-10))) {
+          console.log(`  Comparing ${cleanLOPhone} with ${cleanPhone}`);
+          // Match last 10 digits to handle different formats
+          const match = cleanLOPhone.slice(-10) === cleanPhone.slice(-10);
+          if (match) {
             loanOfficerInfo = {
               ...info,
               phone: phone
             };
+            console.log(`  ✓ Matched: ${info.name}`);
             break;
           }
+        }
+        if (!loanOfficerInfo) {
+          console.log(`  ✗ No match found for ${loanOfficerPhone}`);
         }
 
         // Identify the customer
