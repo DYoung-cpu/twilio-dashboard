@@ -135,6 +135,16 @@ module.exports = async function handler(req, res) {
         console.log(`✅ Transcription completed`);
         console.log(`   Duration: ${transcript.audio_duration}s`);
         console.log(`   Text length: ${transcript.text?.length || 0} chars`);
+        console.log(`   Utterances: ${transcript.utterances?.length || 0}`);
+
+        // Log speaker information
+        if (transcript.utterances && transcript.utterances.length > 0) {
+          const speakers = [...new Set(transcript.utterances.map(u => u.speaker))];
+          console.log(`   Speakers detected: ${speakers.join(', ')}`);
+          console.log(`   First utterance: "${transcript.utterances[0].text.substring(0, 50)}..."`);
+        } else {
+          console.log(`   ⚠️ No speaker separation detected - returning as single text block`);
+        }
 
         // Check for quality issues
         if (transcript.audio_duration < recording.duration * 0.5) {
@@ -143,6 +153,7 @@ module.exports = async function handler(req, res) {
 
         // Format transcript with speakers
         const formattedTranscript = formatTranscript(transcript);
+        console.log(`   Returning ${formattedTranscript.length} segments to frontend`);
 
         return res.json({
           success: true,
