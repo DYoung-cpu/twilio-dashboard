@@ -48,29 +48,44 @@ module.exports = async function handler(req, res) {
     });
 
     // Fetch customer data from Supabase
-    let customerDataMap = {};
+    let customerDataByCallSid = {};
+    let customerDataByRecordingSid = {};
+
     if (supabase) {
       try {
         const { data: transcriptionData, error } = await supabase
           .from('transcriptions')
-          .select('call_sid, customer_name, customer_email, customer_phone, from_number, to_number');
+          .select('call_sid, recording_sid, customer_name, customer_email, customer_phone, from_number, to_number');
 
         if (!error && transcriptionData) {
+          console.log(`Found ${transcriptionData.length} records in Supabase`);
+
           transcriptionData.forEach(item => {
+            const customerData = {
+              name: item.customer_name,
+              email: item.customer_email,
+              phone: item.customer_phone || item.from_number,
+              source: item.customer_name ? 'widget' : 'direct'
+            };
+
+            // Map by both call_sid and recording_sid for better matching
             if (item.call_sid) {
-              customerDataMap[item.call_sid] = {
-                name: item.customer_name,
-                email: item.customer_email,
-                phone: item.customer_phone || item.from_number,
-                source: item.customer_name ? 'widget' : 'direct'
-              };
+              customerDataByCallSid[item.call_sid] = customerData;
+            }
+            if (item.recording_sid) {
+              customerDataByRecordingSid[item.recording_sid] = customerData;
             }
           });
-          console.log(`Loaded customer data for ${Object.keys(customerDataMap).length} calls from Supabase`);
+
+          console.log(`Mapped customer data: ${Object.keys(customerDataByCallSid).length} by call SID, ${Object.keys(customerDataByRecordingSid).length} by recording SID`);
+        } else if (error) {
+          console.error('Supabase query error:', error);
         }
       } catch (err) {
         console.error('Error fetching customer data from Supabase:', err);
       }
+    } else {
+      console.log('Supabase not configured - no customer data available');
     }
 
     // Loan Officer Phone Number Mapping
@@ -116,45 +131,8 @@ module.exports = async function handler(req, res) {
       // Add more loan officer numbers as needed
     };
 
-    // Customer information for known customers
-    // In production, this would come from CRM or widget metadata
-    const knownCustomers = {
-      '+18189182433': {
-        name: 'Federico Fernandez',
-        email: 'federico@example.com',
-        source: 'widget'
-      },
-      '+18054048056': {
-        name: 'Test Contact 1',
-        email: 'contact1@example.com',
-        source: 'direct'
-      },
-      '8054048056': {
-        name: 'Test Contact 1',
-        email: 'contact1@example.com',
-        source: 'direct'
-      },
-      '+14242726952': {
-        name: 'Test Contact 2',
-        email: 'contact2@example.com',
-        source: 'direct'
-      },
-      '4242726952': {
-        name: 'Test Contact 2',
-        email: 'contact2@example.com',
-        source: 'direct'
-      },
-      '+19548286704': {
-        name: 'David Young',
-        email: 'david@lendwise.com',
-        source: 'direct'
-      },
-      '+13109547772': {
-        name: 'David Cell',
-        email: 'david@lendwise.com',
-        source: 'direct'
-      }
-    };
+    // We'll get actual customer data from Supabase, not use placeholders
+    const knownCustomers = {};
 
     // Filter calls with recordings and format response
     const callsWithRecordings = calls
@@ -195,34 +173,28 @@ module.exports = async function handler(req, res) {
           console.log(`  ✗ No match found for ${loanOfficerPhone} (cleaned: ${cleanLOPhone})`);
         }
 
-        // Identify the customer - first check Supabase data
+        // Identify the customer - check Supabase data by both call SID and recording SID
         let customerInfo = null;
         const customerPhone = call.direction === 'inbound' ? call.from : call.to;
-        const cleanCustomerPhone = customerPhone.replace(/\D/g, '');
 
-        // Check if we have customer data from Supabase for this call
-        if (customerDataMap[call.sid]) {
+        // First try to find by call SID
+        if (customerDataByCallSid[call.sid]) {
           customerInfo = {
-            ...customerDataMap[call.sid],
+            ...customerDataByCallSid[call.sid],
             isKnown: true
           };
-          console.log(`Found customer data from Supabase for call ${call.sid}: ${customerInfo.name}`);
-        } else {
-          // Fall back to checking known customers list
-          for (const [phone, info] of Object.entries(knownCustomers)) {
-            const cleanPhone = phone.replace(/\D/g, '');
-            if (cleanCustomerPhone.endsWith(cleanPhone.slice(-10)) || cleanPhone.endsWith(cleanCustomerPhone.slice(-10))) {
-              customerInfo = {
-                ...info,
-                phone: customerPhone,
-                isKnown: true
-              };
-              break;
-            }
-          }
+          console.log(`Found customer data by call SID ${call.sid}: ${customerInfo.name}`);
+        }
+        // Then try by recording SID
+        else if (recording && customerDataByRecordingSid[recording.sid]) {
+          customerInfo = {
+            ...customerDataByRecordingSid[recording.sid],
+            isKnown: true
+          };
+          console.log(`Found customer data by recording SID ${recording.sid}: ${customerInfo.name}`);
         }
 
-        // If still not found, create basic info
+        // If still not found, create basic info with phone number only
         if (!customerInfo) {
           customerInfo = {
             name: null,
@@ -231,6 +203,7 @@ module.exports = async function handler(req, res) {
             isKnown: false,
             source: 'phone'
           };
+          console.log(`No customer data found for call ${call.sid} - using phone only: ${customerPhone}`);
         }
 
         return {
